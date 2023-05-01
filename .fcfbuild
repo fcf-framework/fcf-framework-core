@@ -1,0 +1,10 @@
+{
+  skip: [
+    "^NDetails/resolver.js",
+    "^NDetails/inlineExecution.js",
+    "^NDetails/load.js",
+    "^NProcess/NProcess.js",
+    "^fcf_origin.js",
+    "^serverConfig.js",
+  ]
+}
