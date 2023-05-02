@@ -1,11 +1,11 @@
 {
   "name": "fcf-framework-core",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "Basic functions of the fcf framework 2.0",
   "main": "fcf.js",
   "repository": {
-    "type": "hg",
-    "url": "https://hg.osdn.net/view/fcf2/fcf-framework-core"
+    "type": "git",
+    "url": "https://github.com/fcf-framework/fcf-framework-core.git"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
