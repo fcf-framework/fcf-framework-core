@@ -3318,7 +3318,9 @@
       })
       moduleInfo.result = a_options.module.apply(undefined, dependencies);
       if (_isServer) {
-        let moduleNameOSFormat = fcf.replaceAll(fcf.replaceAll(moduleName, "/", "\\"), ":/", ":\\");
+        let moduleNameOSFormat = fcf.isServer() && process.platform == "win32"
+                                            ? fcf.replaceAll(fcf.replaceAll(moduleName, "/", "\\"), ":/", ":\\")
+                                            : moduleName;
         require.cache[moduleNameOSFormat].exports = moduleInfo.result;
       }
       moduleInfo.state = "ready";
