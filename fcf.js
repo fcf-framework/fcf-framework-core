@@ -2068,7 +2068,10 @@
     let modDirs;
     if (_isServer) {
       let splitter = process.platform == "win32" ? ";" : ":" ;
-      modDirs = process.env.NODE_PATH.split(splitter).filter((v)=>{ return v != "" && v != "." });
+      modDirs = [];
+      for(let mod of require.main.paths) {
+        fcf.append(modDirs, mod.split(splitter).filter((v)=>{ return v != "" && v != "." }))
+      }
     } else {
       modDirs = [fcf.getConfiguration().webModuleDirectory];
     }
