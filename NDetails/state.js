@@ -26,8 +26,8 @@ module.exports = {
   getState: function() {
     let state = _stateStorage.get(libAsyncHooks.executionAsyncId());
     if (!state) {
-      state = {state: {}};
-      this.setState(state);
+      state = [-1, {state: {}}];
+      this.setState(state[1]);
     }
     return state[1];
   },
