@@ -2072,6 +2072,7 @@
       for(let mod of require.main.paths) {
         fcf.append(modDirs, mod.split(splitter).filter((v)=>{ return v != "" && v != "." }))
       }
+      fcf.append(modDirs, process.env.NODE_PATH.split(splitter).filter((v)=>{ return v != "" && v != "." }));
     } else {
       modDirs = [fcf.getConfiguration().webModuleDirectory];
     }
