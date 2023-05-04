@@ -7,7 +7,8 @@
   module.exports = new (class {
 
     appendModuleDirectory(a_directory) {
-      let paths       = fcf.empty(process.env.NODE_PATH) ? [] : process.env.NODE_PATH.split(":");
+      let splitter    = process.platform == "win32" ? ";" : ":";
+      let paths       = fcf.empty(process.env.NODE_PATH) ? [] : process.env.NODE_PATH.split(splitter);
       let directories = !Array.isArray(a_directory) ? [a_directory] : a_directory;
       let needUpdate  = false;
       for(let dir of directories){
@@ -20,7 +21,7 @@
         }
       }
       if (needUpdate) {
-        process.env.NODE_PATH = paths.join(":");
+        process.env.NODE_PATH = paths.join(splitter);
         libModule.Module._initPaths();
       }
       _directories = {};

@@ -2030,6 +2030,7 @@
     a_isServerPath = a_isServerPath === undefined ? fcf.isServer() : a_isServerPath;
     let path = fcf.resolvePath(a_path);
     path = fcf.normalizePath(path, a_isServerPath);
+    let cwd = fcf.isServer() ? fcf.normalizePath(process.cwd()) : undefined;
     if ((!a_isServerPath || a_isServerPath === "*") && (path.indexOf("http://") != -1 || path.indexOf("https://") != -1)) {
       if (!_isServer) {
         let pos = window.location.href.indexOf("://");
@@ -2043,6 +2044,8 @@
       }
     }
     let pos = path.indexOf(":");
+    if (pos == 1)
+      pos = -1;
     let mod = pos != -1 ? path.substring(0, pos) : "";
     if (mod.indexOf("/") != -1 || mod.indexOf("\\") != -1) {
       mod = undefined;
@@ -2064,17 +2067,19 @@
     }
     let modDirs;
     if (_isServer) {
-      modDirs = process.env.NODE_PATH.split(":").filter((v)=>{ return v != "" && v != "." });
+      let splitter = process.platform == "win32" ? ";" : ":" ;
+      modDirs = process.env.NODE_PATH.split(splitter).filter((v)=>{ return v != "" && v != "." });
     } else {
       modDirs = [fcf.getConfiguration().webModuleDirectory];
     }
     for(let modDir of modDirs) {
-      if (_isServer && (a_isServerPath || a_isServerPath === "*") && process.cwd() == modDir) {
+      modDir = fcf.normalizePath(modDir);
+      if (_isServer && (a_isServerPath || a_isServerPath === "*") && cwd == modDir) {
         continue;
       }
       if ((pos = rootPath.indexOf(modDir)) == 0){
         mod = rootPath.substring(modDir.length+1).split("/")[0].split("\\")[0];
-        if (_isServer && (a_isServerPath || a_isServerPath === "*") && (process.cwd() == modDir+"/"+mod || process.cwd() == modDir+"\\"+mod)) {
+        if (_isServer && (a_isServerPath || a_isServerPath === "*") && (cwd == modDir+"/"+mod || cwd == modDir+"\\"+mod)) {
           mod = undefined;
           pos = -1;
         } else if (!mod) {
@@ -2085,7 +2090,7 @@
         }
       }
     }
-    if (_isServer && (a_isServerPath || a_isServerPath === "*") && path.indexOf(process.cwd()) == 0) {
+    if (_isServer && (a_isServerPath || a_isServerPath === "*") && path.indexOf(cwd) == 0) {
       return {module: "", subpath: path.substr(process.cwd().length + 1)};
     }
     if (!a_isServerPath || a_isServerPath === "*" || (path[0] != "/" && path.indexOf(":\\") != 1)) {
@@ -2120,7 +2125,7 @@
     if (a_innerServerPath) {
       let winDSPos = a_uri.indexOf(":\\");
       if (a_uri[0] == "/" || (winDSPos != -1 && winDSPos < 2))
-        return a_uri;
+        return fcf.normalizePath(a_uri);
     } else {
       if (a_uri.indexOf("://") != -1)
         return a_uri;
@@ -2140,7 +2145,7 @@
     if (moduleName != "") {
       if (a_innerServerPath){
         let modulePath = libResolver.resolveModule(moduleName);
-        a_uri = libPath.join(modulePath, relativePath);
+        a_uri = fcf.normalizePath(libPath.join(modulePath, relativePath));
       } else {
         let prefix = "";
         let srcInfo = configuration.sources[moduleName];
@@ -2159,7 +2164,7 @@
       }
     } else {
       if (a_innerServerPath){
-        a_uri = libPath.join(process.cwd(), relativePath);
+        a_uri = fcf.normalizePath(libPath.join(process.cwd(), relativePath));
       } else {
         a_uri = "/" + fcf.ltrim(relativePath, ["/", "\\", ":"]);
       }
@@ -3313,7 +3318,8 @@
       })
       moduleInfo.result = a_options.module.apply(undefined, dependencies);
       if (_isServer) {
-        require.cache[moduleName].exports = moduleInfo.result;
+        let moduleNameOSFormat = fcf.replaceAll(fcf.replaceAll(moduleName, "/", "\\"), ":/", ":\\");
+        require.cache[moduleNameOSFormat].exports = moduleInfo.result;
       }
       moduleInfo.state = "ready";
       if (moduleInfo.act){
