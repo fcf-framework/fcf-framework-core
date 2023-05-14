@@ -1,12 +1,16 @@
 {
   "name": "fcf-framework-core",
-  "version": "2.0.5",
+  "version": "2.0.6",
   "description": "Basic functions of the fcf framework 2.0",
   "main": "fcf.js",
   "repository": {
     "type": "git",
     "url": "https://github.com/fcf-framework/fcf-framework-core.git"
   },
+  "keywords": [
+    "fcf",
+  ],
+  "homepage": "https://fcf-framework.tech/packages/fcf-framework-core",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },

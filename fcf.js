@@ -264,10 +264,10 @@
       switch(c){
         case "<":  result += "&lt;";    break;
         case ">":  result += "&gt;";    break;
-        case "\"": result += "&quot;"; break;
+        case "\"": result += "&quot;";  break;
         case "\'": result += "&apos;";  break;
-        case "&":  result += "&amp;";  break;
-        default:   result += c; break;
+        case "&":  result += "&amp;";   break;
+        default:   result += c;         break;
       }
     }
     return result;
@@ -2030,6 +2030,9 @@
     a_isServerPath = a_isServerPath === undefined ? fcf.isServer() : a_isServerPath;
     let path = fcf.resolvePath(a_path);
     path = fcf.normalizePath(path, a_isServerPath);
+    if (path.indexOf("/") == -1 && path.indexOf("\\") == -1 && path.indexOf(":") == -1) {
+      return { module: "", subpath: path};
+    }
     let cwd = fcf.isServer() ? fcf.normalizePath(process.cwd()) : undefined;
     if ((!a_isServerPath || a_isServerPath === "*") && (path.indexOf("http://") != -1 || path.indexOf("https://") != -1)) {
       if (!_isServer) {
@@ -6008,8 +6011,7 @@
     })
     .then(()=>{
       if (!_isServer) {
-        let route = new fcf.RouteInfo(window.location.href);
-        if (!("___fcf_unitest" in route.args)){
+        if (!("___fcf_unitest" in fcf.getContext().route.args)){
           return;
         }
       }
@@ -6707,8 +6709,7 @@
   }
 
   if (!_isServer) {
-    let route = new fcf.RouteInfo(window.location.href);
-    if ("___fcf_unitest" in route.args){
+    if ("___fcf_unitest" in fcf.getContext().route.args){
       fcf.require("fcf-framework-unitest")
       .then(()=>{
         if (!fcf.NUnitest || !fcf.NUnitest.unitest) {
