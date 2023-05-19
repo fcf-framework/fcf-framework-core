@@ -6623,7 +6623,10 @@
           let value = fcf.resolve(typeof global !== "undefined" ? global : window, item.variable);
           try {
             if (overwrite || (!(key in root) || typeof root[key] === "function")) {
-              root[key] = value;
+              let desc = Object.getOwnPropertyDescriptor(root, key);
+              if (!desc || desc.writable) {
+                root[key] = value;
+              }
             }
           } catch(e) {
           }
