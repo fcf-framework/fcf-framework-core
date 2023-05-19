@@ -62,7 +62,8 @@
            (a_value[s] == "{" && a_value[l] == "}") ||
            (a_value[s] == "[" && a_value[l] == "]") ||
            ((l - s == 3) && a_value[s] == "t" && a_value[s+1] == "r" && a_value[s+2] == "u" && a_value[s+3] == "e" ) ||
-           ((l - s == 4) && a_value[s] == "f" && a_value[s+1] == "a" && a_value[s+2] == "l" && a_value[s+3] == "s" && a_value[s+4] == "e" )
+           ((l - s == 4) && a_value[s] == "f" && a_value[s+1] == "a" && a_value[s+2] == "l" && a_value[s+3] == "s" && a_value[s+4] == "e" ) ||
+           ((l - s == 3) && a_value[s] == "n" && a_value[s+1] == "u" && a_value[s+2] == "l" && a_value[s+3] == "l" )
         ) )
       {
         try {
