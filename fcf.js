@@ -4896,9 +4896,10 @@
       else
         ++this._counters[a_eventName];
       this._led[a_eventName] = a_data;
-      if (!(a_eventName in this._callbacks))
-        return fcf.actions();
       let eventHeader = { name: a_eventName };
+      if (!(a_eventName in this._callbacks)) {
+        return fcf.actions().result({ event: a_data, header: eventHeader});
+      }
       let callbacks = this._callbacks[a_eventName];
       let actions;
       let deferred = [];
@@ -4972,7 +4973,7 @@
           }
         })
         .then(()=>{
-          return a_data;
+          return { event: a_data, header: eventHeader};
         });
       } else {
         for(let rmitem of rm) {
@@ -4988,7 +4989,7 @@
             }
           }
         }
-        return !error ? fcf.actions().result(a_data)
+        return !error ? fcf.actions().result({ event: a_data, header: eventHeader} )
                       : fcf.actions().error(error);
       }
     }
