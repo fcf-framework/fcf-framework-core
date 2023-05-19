@@ -48,6 +48,39 @@
 
 
 
+  function _autoParse(a_value) {
+    if ( typeof a_value == "string" && a_value.length){
+      let s = 0;
+      for(; s < a_value.length && a_value.charCodeAt(s) <= 32; ++s);
+      let l = a_value.length-1;
+      for(; l >= 0 && a_value.charCodeAt(l) <= 32; --l);
+      if (
+        l >= 0 &&
+        (
+           !isNaN(a_value) ||
+           ((l - s >= 1) && a_value[s] == "\"" && a_value[l] == "\"") ||
+           (a_value[s] == "{" && a_value[l] == "}") ||
+           (a_value[s] == "[" && a_value[l] == "]") ||
+           ((l - s == 3) && a_value[s] == "t" && a_value[s+1] == "r" && a_value[s+2] == "u" && a_value[s+3] == "e" ) ||
+           ((l - s == 4) && a_value[s] == "f" && a_value[s+1] == "a" && a_value[s+2] == "l" && a_value[s+3] == "s" && a_value[s+4] == "e" )
+        ) )
+      {
+        try {
+          let res =  JSON.parse(a_value);
+          return res;
+        } catch(e) {
+          return a_value;
+        }
+      } else {
+        return a_value;
+      }
+    } else {
+      return a_value;
+    }
+  }
+
+
+
   /// @fn string fcf.str(mixed a_data)
   /// @brief Converts data to a string
   /// @details NaN, undefined and null values are represented as an empty string
@@ -2389,10 +2422,7 @@
     })
     .then((a_res) => {
       if (a_options.format === "auto") {
-        try {
-          a_res = JSON.parse(a_res);
-        } catch(e) {
-        }
+        a_res = _autoParse(a_res);
       } else if (a_options.format === "json") {
         a_res = JSON.parse(a_res);
       }
@@ -4361,11 +4391,7 @@
       }
       {
         for(let k in this.urlArgsRaw) {
-          try {
-            this.urlArgs[k] = JSON.parse(this.urlArgsRaw[k]);
-          } catch(e){
-            this.urlArgs[k] = this.urlArgsRaw[k];
-          }
+          this.urlArgs[k] = _autoParse(this.urlArgsRaw[k]);
         }
       }
       {
@@ -4389,11 +4415,7 @@
       }
       {
         for(let k in this.postArgsRaw) {
-          try {
-            this.postArgs[k] = JSON.parse(this.postArgsRaw[k]);
-          } catch(e) {
-            this.postArgs[k] = this.postArgsRaw[k];
-          }
+          this.postArgs[k] = _autoParse(this.postArgsRaw[k]);
         }
       }
       {
