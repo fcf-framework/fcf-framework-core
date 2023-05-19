@@ -43,10 +43,11 @@ async function garbageСollector(a_preffix) {
 
 function startTimer() {
   let tsEnd = fcf.parseDate(fcf.formatDate(new Date(), "Y-m-d"), "Y-m-d").getTime() + 24*60*60*1000 + 5*60*1000;
-  setTimeout(()=>{
+  let timer = setTimeout(()=>{
     garbageСollector();
     startTimer()
   }, tsEnd - Date.now());
+  timer.unref();
 }
 
 setTimeout(()=>{
