@@ -137,6 +137,7 @@
   const CHAR$ = '$'.charCodeAt(0);
   const CHAR_ = '_'.charCodeAt(0);
 
+  const PROHIBITED_METHODS = {"__defineGetter__": 1, "__defineSetter__": 1, "__lookupGetter__": 1, "__lookupSetter__": 1};
 
   module.exports = fcf.NDetails.inlineExecution = new (class {
     execute(a_command, a_args) {
@@ -298,9 +299,16 @@
                               callInfo = ci;
                             }
                           } else {
-                            let classItem = fcf.resolve(globalObject, ci.class);
-                            if (lstObject instanceof classItem){
-                              callInfo = ci;
+                            if (typeof ci.class == "string") {
+                              let classItem = fcf.resolve(globalObject, ci.class);
+                              try {
+                                if (lstObject instanceof classItem){
+                                  callInfo = ci;
+                                }
+                              } catch(e){
+                              }
+                            } else if (typeof ci.class == "function") {
+                               callInfo = ci;
                             }
                           }
                         } else {
@@ -312,17 +320,26 @@
                       for(let ci of c["*"]) {
                         if (ci.class){
                           if (ci.class == "String") {
-                            if (typeof lstObject == "string") {
+                            if (typeof lstObject == "string" && !PROHIBITED_METHODS[lstKey]) {
                               callInfoAll = ci;
+
                             }
                           } else {
-                            let classItem = fcf.resolve(globalObject, ci.class);
-                            if (lstObject instanceof classItem){
+                            if (typeof ci.class == "string" && !PROHIBITED_METHODS[lstKey]) {
+                              let classItem = fcf.resolve(globalObject, ci.class);
+                              try {
+                                if (lstObject instanceof classItem){
+                                  callInfoAll = ci;
+                                }
+                              } catch(e){}
+                            } else if (typeof ci.class == "function" && !PROHIBITED_METHODS[lstKey]){
                               callInfoAll = ci;
                             }
                           }
                         } else {
-                          callInfoAll = ci;
+                          if (!PROHIBITED_METHODS[lstKey]) {
+                            callInfoAll = ci;
+                          }
                         }
                       }
                     }
