@@ -37,7 +37,10 @@ module.exports = {
       },
       {
         object: "Math",
-        allow: ["*"],
+        allow: ["abs", "acos", "acosh", "asin","asinh", "atan", "atan2", "atanh", "cbrt", "ceil",
+                "clz32", "cos", "cosh", "exp", "expm1", "floor", "fround", "hypot", "imul", "log",
+                "log1p", "log2", "log10", "max", "min", "pow", "random", "round", "sign", "sin",
+                "sinh", "sqrt", "tan", "tanh", "trunc"],
       },
       {
         object: "*",
@@ -55,15 +58,19 @@ module.exports = {
       {
         object: "*",
         class:  "Date",
-        allow: ["getDate", "getDay", "getFullYear", "getHours", "getMilliseconds", "getMinutes", "getMonth", "getSeconds", "getTime", "getTimezoneOffset", "getUTCDate", "getUTCDay", "getUTCFullYear", "getUTCHours", "getUTCMilliseconds", "getUTCMinutes", "getUTCMonth", "getUTCSeconds", "getYear", "toDateString", "toISOString", "toJSON", "toLocaleDateString", "toLocaleString", "toLocaleTimeString", "toTimeString", "toUTCString"],
+        allow: ["getDate", "getDay", "getFullYear", "getHours", "getMilliseconds", "getMinutes",
+                "getMonth", "getSeconds", "getTime", "getTimezoneOffset", "getUTCDate", "getUTCDay",
+                "getUTCFullYear", "getUTCHours", "getUTCMilliseconds", "getUTCMinutes", "getUTCMonth",
+                "getUTCSeconds", "getYear", "toDateString", "toISOString", "toJSON", "toLocaleDateString",
+                "toLocaleString", "toLocaleTimeString", "toTimeString", "toUTCString"],
       },
       {
         object: "Date",
-        allow: ["*"],
+        allow: ["parse", "now", "UTC", "constructor"],
       },
       {
         object: "RegExp",
-        allow:  ["*"]
+        allow:  ["constructor"]
       },
       {
         object: "*",
@@ -73,8 +80,17 @@ module.exports = {
       {
         object: "*",
         class:  "String",
-        allow: ["*"],
+        allow: ["anchor", "at", "big", "blink", "bold", "charAt", "charCodeAt", "codePointAt", "concat",
+                "endsWith", "fixed", "fontcolor", "fontsize", "includes", "indexOf", "isWellFormed",
+                "italics", "lastIndexOf", "link", "localeCompare", "match", "matchAll", "normalize",
+                "padEnd", "padStart", "repeat", "replace", "replaceAll", "search", "slice", "small",
+                "split", "startsWith", "strike", "sub", "substr", "substring", "sup", "toLocaleLowerCase",
+                "toLocaleUpperCase", "toLowerCase", "toUpperCase", "toWellFormed", "trim", "trimEnd", "trimStart"],
       },
+      {
+        object: "String",
+        allow:  ["fromCharCode", "fromCodePoint"],
+      }
     ],
   }
 };
