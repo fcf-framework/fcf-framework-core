@@ -1,6 +1,6 @@
 {
   "name": "fcf-framework-core",
-  "version": "2.0.9",
+  "version": "2.0.10",
   "description": "Basic functions of the fcf framework 2.0",
   "main": "fcf.js",
   "repository": {
