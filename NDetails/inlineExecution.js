@@ -33,6 +33,7 @@
     "undefined": 1,
     "false": 1,
     "true": 1,
+    "null": 1,
   };
 
   const UCOMMANDS = {
@@ -1014,6 +1015,7 @@
                       keyword === "NaN"       ? NaN :
                       keyword === "Infinity"  ? Infinity :
                       keyword === "undefined" ? undefined :
+                      keyword === "null"      ? null :
                       keyword === "false"     ? false :
                                                 true
                     )];
