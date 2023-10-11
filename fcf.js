@@ -3034,19 +3034,16 @@
         };
       } else {
         if ("noexcept" in a_options){
-          let b = a_options.noexcept ? ACTIONS_FLAGS_NOEXCEPT : 0;
-          if (b) this._flags |= b;
-          else   this._flags &= ~b;
+          if (a_options.noexcept) this._flags |= ACTIONS_FLAGS_NOEXCEPT;
+          else                    this._flags &= ~ACTIONS_FLAGS_NOEXCEPT;
         }
         if ("quiet" in a_options){
-          let b = a_options.quiet ? ACTIONS_FLAGS_QUIET : 0;
-          if (b) this._flags |= b;
-          else   this._flags &= ~b;
+          if (a_options.quiet) this._flags |=  ACTIONS_FLAGS_QUIET;
+          else                 this._flags &= ~ACTIONS_FLAGS_QUIET;
         }
         if ("deferred" in a_options) {
-          let b = a_options.deferred ? ACTIONS_FLAGS_DEFERRED : 0;
-          if (b) this._flags |= b;
-          else   this._flags &= ~b;
+          if (a_options.deferred) this._flags |= ACTIONS_FLAGS_DEFERRED;
+          else                    this._flags &= ~ACTIONS_FLAGS_DEFERRED;
         }
         if ("errorResult" in a_options) {
           this._errorResult = a_options.errorResult;
