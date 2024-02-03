@@ -4905,20 +4905,31 @@
 
 
 
-    /// @method fcf.Actions->object send(string a_eventName, object a_data)
+    /// @method fcf.Actions->object send(string a_eventName, object a_event)
+    /// @method fcf.Actions->object send(string a_eventName, object a_eventOptions, object a_event)
     /// @brief Sends a message
-    /// @param string a_eventName - Event name
-    /// @param object a_data - Event data object
-    /// @result fcf.Actions->object Returns a lazy action object that returns an event data object
-    send(a_eventName, a_data) {
+    /// @param string a_eventName    - Event name
+    /// @param object a_eventOptions - Extens options:
+    ///                                 - boolean exresult = false - Format of the result returned by the method through the fcf.Actions object
+    ///                                   If this option equal true, then method result an object with next fields:
+    ///                                     - object event  - Modified a_event argument data
+    ///                                     - object header - Event header
+    ///                                   If this option is false, then the result of the method will be the modified data of the a_event argument.
+    /// @param object a_event        - Event data object
+    /// @result fcf.Actions->object Returns a lazy action object that returns an event data object (The format depends on the exresult option)
+    send(a_eventName, a_eventOptions, a_event) {
+      if (a_event === undefined){
+        a_event = a_eventOptions;
+        a_eventOptions = {};
+      }
       if (!(a_eventName in this._counters))
         this._counters[a_eventName] = 1;
       else
         ++this._counters[a_eventName];
-      this._led[a_eventName] = a_data;
+      this._led[a_eventName] = a_event;
       let eventHeader = { name: a_eventName };
       if (!(a_eventName in this._callbacks)) {
-        return fcf.actions().result({ event: a_data, header: eventHeader});
+        return fcf.actions().result(a_eventOptions.exresult ? { event: a_event, header: eventHeader} : a_event);
       }
       let callbacks = this._callbacks[a_eventName];
       let actions;
@@ -4933,7 +4944,7 @@
               rm.push({level: levelKey, id: id});
             }
             try {
-              actions = levelValue[id].cb(a_data, eventHeader);
+              actions = levelValue[id].cb(a_event, eventHeader);
             } catch(e) {
               error = e;
               break;
@@ -4960,7 +4971,7 @@
           }
           let res;
           try {
-            res = a_callbackInfo[2](a_data, eventHeader);
+            res = a_callbackInfo[2](a_event, eventHeader);
           } catch(e){
             a_act.error(e);
             return;
@@ -4993,7 +5004,7 @@
           }
         })
         .then(()=>{
-          return { event: a_data, header: eventHeader};
+          return a_eventOptions.exresult ? { event: a_event, header: eventHeader} : a_event;
         });
       } else {
         for(let rmitem of rm) {
@@ -5009,7 +5020,7 @@
             }
           }
         }
-        return !error ? fcf.actions().result({ event: a_data, header: eventHeader} )
+        return !error ? fcf.actions().result(a_eventOptions.exresult ? { event: a_event, header: eventHeader} : a_event )
                       : fcf.actions().error(error);
       }
     }
