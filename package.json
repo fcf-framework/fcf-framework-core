@@ -15,5 +15,8 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "VMarkin",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "fcf-framework-unitest": "^1.0.7"
+  }
 }

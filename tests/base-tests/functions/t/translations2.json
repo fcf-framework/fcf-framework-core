@@ -1,0 +1,14 @@
+[
+  {
+    "language": "xyz1",
+    "translations": {
+      "test3": "test3_xyz1"
+    }
+  },
+  {
+    "language": "xyz2",
+    "translations": {
+      "test4": "test4_xyz2"
+    }
+  }
+]

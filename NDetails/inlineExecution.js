@@ -1,3 +1,4 @@
+
 (function() {
   let   STATE_END             = 0;
   const S_WAIT                = STATE_END++;
@@ -511,6 +512,88 @@
              (cn >= CHARa && cn <= CHARz) ||
              (cn >= CHARA && cn <= CHARZ) ||
              cn === CHAR$ || cn === CHAR_;
+    }
+
+    getEqualitiesExpression(a_expression) {
+      let result = {};
+
+      let read = (tree, _info) => {
+        if (_info === undefined) {
+          _info = {};
+        }
+        if (tree.t == "o" && tree.a[0].t == "b") {
+          return read(tree.a[0], _info);
+        } else if (tree.t == "b") {
+          return read(tree.a[0], _info);
+        } else if (tree.t == "v" && !_info.t) {
+          _info.t = "v";
+          _info.value = undefined;
+          if (!read(tree, _info)) {
+            return;
+          }
+          return _info;
+        } else if (tree.t == "o" && !_info.t) {
+          if (tree.a.length == 1 && tree.a[0].t == "v") {
+            _info.t = "v";
+            _info.value = undefined;
+            if (!read(tree.a[0], _info)) {
+              return;
+            }
+            return _info;
+          } else {
+            _info.t = "o";
+            _info.path = [];
+            for(let itm of tree.a){
+              let res = read(itm, _info);
+              if (!res) {
+                return;
+              }
+            }
+            return _info;
+          }
+        } else if (tree.t == "v" && _info.t == "v") {
+          _info.value = tree.a[0];
+          return true;
+        } else if (tree.t == "i" && _info.t == "o") {
+          if (!tree.b){
+            _info.path.push(tree.a[0].toString());
+            return true;
+          } else if (tree.a[0].t == "o" && tree.a[0].a[0].t == "v"){
+            _info.path.push(tree.a[0].a[0].a[0].toString());
+            return true;
+          } else if (tree.a[0].t == "v"){
+            _info.path.push(tree.a[0].a[0].toString());
+            return true;
+          }
+        }
+        return false;
+      };
+
+      let find = (tree) => {
+        if (tree.t == "o" && tree.a[0].t == "b") {
+          find(tree.a[0]);
+        } else if (tree.t == "b") {
+          find(tree.a[0]);
+        } else if (tree.t == "==" || tree.t == "===") {
+          let a = {};
+          for(let t of tree.a) {
+            let item = read(t);
+            if (item) {
+              a[item.t] = item;
+            }
+          }
+          if (a.o && a.v) {
+            result[fcf.normalizeObjectAddress(a.o.path)] = a.v.value;
+          }
+        } else if (tree.t == "&&" || tree.t == "b") {
+          for(let t of tree.a) {
+            find(t);
+          }
+        }
+      };
+      let tree = module.exports.parse(a_expression);
+      find(tree);
+      return result;
     }
 
     parse(a_command){

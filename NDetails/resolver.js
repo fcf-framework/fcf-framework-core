@@ -15,7 +15,7 @@
         if (typeof dir !== "string")
           continue;
         dir = fcf.getPath(dir);
-        if (paths.indexOf(dir) == -1){
+        if (paths.indexOf(dir) != 0){
           paths.unshift(dir);
           needUpdate = true;
         }

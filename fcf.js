@@ -612,6 +612,7 @@
 
 
 
+
   /// @fn boolean fcf.isObject(mixed a_value)
   /// @brief Checks if the argument is an object and not null
   /// @param mixed a_value Checked value
@@ -720,6 +721,21 @@
   Object.defineProperty(fcf,
                         "NUMBERED",
                         { value: 10, writable: false });
+  /// @var integer fcf.ENUM = 11
+  /// @brief Nature type of variable. Enum variants
+  Object.defineProperty(fcf,
+                        "ENUM",
+                        { value: 11, writable: false });
+  /// @var integer fcf.SET = 12
+  /// @brief Nature type of variable. Set variants
+  Object.defineProperty(fcf,
+                        "SET",
+                        { value: 12, writable: false });
+  /// @var integer fcf.ANY = -1
+  /// @brief Nature type of variable. Any type
+  Object.defineProperty(fcf,
+                        "ANY",
+                        { value: -1, writable: false });
 
 
 
@@ -812,6 +828,488 @@
     }
     return false;
   }
+
+
+  fcf.nature = (a_value, a_nature, a_softMode) => {
+    if (fcf.isNature(a_value, a_nature, a_softMode)){
+      return a_value;
+    }
+  }
+
+
+  const DEFAULT_TYPE_DESCRIPTION = {};
+
+  function _typeToString(a_type){
+    if (typeof a_type == "number") {
+      switch (a_type){
+        case fcf.UNDEFINED: return "undefined";
+        case fcf.NULL:      return "null";
+        case fcf.NAN:       return "nan";
+        case fcf.BOOLEAN:   return "boolean";
+        case fcf.NUMBER:    return "number";
+        case fcf.STRING:    return "string";
+        case fcf.DATE:      return "date";
+        case fcf.OBJECT:    return "object";
+        case fcf.ARRAY:     return "array";
+        case fcf.ITERABLE:  return "iterable";
+        case fcf.NUMBERED:  return "numbered";
+        case fcf.ENUM:      return "enum";
+        default:            return a_type.toString();
+     }
+    } else {
+      return a_type.toString();
+    }
+  }
+
+  fcf.type = (a_type, a_description, a_declarations) => {
+    if (a_type._valid) {
+      return a_type;
+    }
+    if (!a_type) {
+      a_type = fcf.ANY;
+    }
+    if (typeof a_type == "object" && !Array.isArray(a_type)) {
+      a_description = a_type;
+      a_type        = a_description.type;
+    }
+    a_description = a_description || DEFAULT_TYPE_DESCRIPTION;
+    let type = {
+      require: a_description.require,
+      convert: a_description.convert,
+    };
+    if ("default" in a_description) {
+      type.default = a_description.default;
+    }
+    if (!Array.isArray(a_type)) {
+      switch(a_type) {
+        case fcf.ANY:
+        case "any":
+          type.type = fcf.ANY;
+          break;
+        case fcf.UNDEFINED:
+        case "undefined":
+          type.type = fcf.UNDEFINED;
+          break;
+        case fcf.NULL:
+        case "null":
+          type.type = fcf.NULL;
+          break;
+        case fcf.NAN:
+        case "nan":
+          type.type = fcf.NAN;
+          break;
+        case fcf.BOOLEAN:
+        case "boolean":
+          type.type = fcf.BOOLEAN;
+          break;
+        case fcf.NUMBER:
+        case "number":
+          type.type   = fcf.NUMBER;
+          type.min    = a_description.min;
+          type.max    = a_description.max;
+          break;
+        case fcf.STRING:
+        case "string":
+          type.type      = fcf.STRING;
+          type.length    = a_description.length;
+          type.minLength = a_description.minLength;
+          type.maxLength = a_description.maxLength;
+          break;
+        case fcf.DATE:
+        case "date":
+          type.type   = fcf.DATE;
+          break;
+        case fcf.ARRAY:
+        case "array":
+          type.type = fcf.ARRAY;
+          type.item = a_description.item ? fcf.type(a_description.item) : fcf.type(fcf.ANY);
+          break;
+        case fcf.NUMBERED:
+        case "numbered":
+          type.type = fcf.NUMBERED;
+          type.item = a_description.item ? fcf.type(a_description.item) : fcf.type(fcf.ANY);
+          break;
+        case fcf.OBJECT:
+        case "object":
+          type.type       = fcf.OBJECT;
+          type.fields     = {};
+          if (a_description.fields && typeof a_description.fields == "object"){
+            for(let key in a_description.fields){
+              type.fields[key] = fcf.type(a_description.fields[key]);
+            }
+          }
+          type.undeclared = typeof a_description.undeclared == "boolean"
+                              ? a_description.undeclared :
+                            a_description.undeclared
+                              ? fcf.type(a_description.undeclared) :
+                                undefined;
+          break;
+        case fcf.ITERABLE:
+        case "iterable":
+          type.type = fcf.ITERABLE;
+          type.item = a_description.item ? fcf.type(a_description.item) : fcf.type(fcf.ANY);
+          break;
+        case fcf.ENUM:
+        case "enum":
+          type.type = fcf.ENUM;
+          type.items = {};
+          if (Array.isArray(a_description.items)) {
+            for(const v of a_description.items) {
+              if (!type.items[v]){
+                type.items[v] = [];
+              }
+              type.items[v].push(v);
+            }
+          }
+          break;
+        case fcf.SET:
+        case "set":
+          type.type = fcf.SET;
+          type.items = {};
+          if (Array.isArray(a_description.items)) {
+            for(const v of a_description.items) {
+              if (!type.items[v]){
+                type.items[v] = [];
+              }
+              type.items[v].push(v);
+            }
+          }
+          break;
+        default:
+          throw new fcf.Exception("UNKNOWN_TYPE", {type: a_type});
+          break;
+      }
+    } else {
+      type.type = -100;
+      type.types = [];
+      for(let t of a_type) {
+        type.types.push(fcf.type(t));
+      }
+    }
+    Object.defineProperty(type, "_valid", { value: 1, enumerable: false });
+    return type;
+  }
+
+
+
+  const _buildType = (a_type, a_value, a_options, a_resultInfo, a_rootType, a_forceError) => {
+    switch(a_type.type) {
+      case fcf.UNDEFINED:
+        if (a_value === undefined) {
+          a_resultInfo.error = false;
+          break;
+        }
+        a_resultInfo.error = 1;
+        if (a_rootType) {
+          a_resultInfo.types = ["undefined"];
+        }
+        break;
+      case fcf.NULL:
+        if (a_value === null) {
+          a_resultInfo.error = false;
+          break;
+        }
+        a_resultInfo.error = a_value === undefined ? 2 : 1;
+        if (a_rootType) {
+          a_resultInfo.types = ["null"];
+        }
+        break;
+      case fcf.NAN:
+        if (typeof a_value === "number" && isNaN(a_value)) {
+          a_resultInfo.error = false;
+          break;
+        }
+        a_resultInfo.error = a_value === undefined ? 2 : 1;
+        if (a_rootType) {
+          a_resultInfo.types = ["nan"];
+        }
+        break;
+      case fcf.BOOLEAN:
+        if (typeof a_value === "boolean") {
+          a_resultInfo.error = false;
+          break;
+        }
+        a_resultInfo.error = a_value === undefined ? 2 : 1;
+        if (a_rootType) {
+          a_resultInfo.types = ["boolean"];
+        }
+        break;
+      case fcf.NUMBER:
+        if (typeof a_value === "number" && !isNaN(a_value)) {
+          if (a_type.min !== undefined && a_value < a_type.min) {
+            let path = fcf.normalizeObjectAddress(a_resultInfo.path);
+            throw new fcf.Exception("NUMBER_MIN", { value: a_value, min: a_type.min, path: path })
+          } else if (a_type.max !== undefined && a_value > a_type.max) {
+            let path = fcf.normalizeObjectAddress(a_resultInfo.path);
+            throw new fcf.Exception("NUMBER_MAX", { value: a_value, max: a_type.max, path: path })
+          } else {
+            a_resultInfo.error = false;
+            break;
+          }
+        }
+        a_resultInfo.error = a_value === undefined ? 2 : 1;
+        if (a_rootType) {
+          a_resultInfo.types = ["number"];
+        }
+        break;
+      case fcf.STRING:
+        if (typeof a_value === "string") {
+          if (a_type.length !== undefined && a_type.length != a_value.length) {
+            let path = fcf.normalizeObjectAddress(a_resultInfo.path);
+            throw new fcf.Exception("STRING_LENGTH", { currentLength: a_value.length, length: a_type.length, path: path })
+          } else if (a_type.minLength !== undefined && a_value.length < a_type.minLength) {
+            let path = fcf.normalizeObjectAddress(a_resultInfo.path);
+            throw new fcf.Exception("STRING_MIN_LENGTH", { currentLength: a_value.length, minLength: a_type.minLength, path: path })
+          } else if (a_type.maxLength !== undefined && a_value.length > a_type.maxLength) {
+            let path = fcf.normalizeObjectAddress(a_resultInfo.path);
+            throw new fcf.Exception("STRING_MAX_LENGTH", { currentLength: a_value.length, maxLength: a_type.maxLength, path: path })
+          }
+          a_resultInfo.error = false;
+          break;
+        }
+        a_resultInfo.error = a_value === undefined ? 2 : 1;
+        if (a_rootType) {
+          a_resultInfo.types = ["string"];
+        }
+        break;
+      case fcf.DATE:
+        if (a_value instanceof Date) {
+          a_resultInfo.error = false;
+          break;
+        }
+        a_resultInfo.error = a_value === undefined ? 2 : 1;
+        if (a_rootType) {
+          a_resultInfo.types = ["date"];
+        }
+        break;
+      case -100:
+        a_resultInfo.error = false;
+        for(let t of a_type.types) {
+          let value = _buildType(t, a_value, a_options, a_resultInfo, false, false);
+          if (!a_resultInfo.error) {
+            a_value = value;
+            break;
+          }
+        }
+        if (a_resultInfo.error == 1) {
+          a_resultInfo.types = a_type.types.map((a_type)=>{
+            if (a_type.type == fcf.ENUM) {
+              let v = [];
+              for(let k in a_type.items) {
+                for(let itm of a_type.items[k]) {
+                  v.push(JSON.stringify(itm));
+                }
+              }
+              let tstr = "enum[";
+              tstr += v.join(";");
+              tstr += "]";
+              return tstr;
+            } else {
+              return _typeToString(a_type.type);
+            }
+          });
+        }
+        break;
+      case fcf.ARRAY:
+      case fcf.NUMBERED:
+        const check = a_type.type == fcf.ARRAY ? Array.isArray(a_value) : fcf.isNumbered(a_value);
+        if (check) {
+          a_resultInfo.error = false;
+          for(let i = 0; i < a_value.length; ++i) {
+            a_resultInfo.path.push(i.toString());
+            let value = _buildType(a_type.item, a_value[i], a_options, a_resultInfo, true, false);
+            if (!a_resultInfo.error) {
+             a_value[i] = value;
+            } else {
+              let path = fcf.normalizeObjectAddress(a_resultInfo.path);
+              if (a_resultInfo.error == 1) {
+                throw new fcf.Exception("NOT_MATCH_TYPE", { path: path, types: (a_resultInfo.types ? a_resultInfo.types : [] )});
+              } else {
+                throw new fcf.Exception("FIELD_NOT_SET", { path: path });
+              }
+            }
+            a_resultInfo.path.pop();
+          }
+        } else {
+          a_resultInfo.error = a_value === undefined ? 2 : 1;
+          if (a_rootType) {
+            a_resultInfo.types = [( a_type.type == fcf.ARRAY ? "array" : "numbered" )];
+          }
+        }
+       break;
+      case fcf.OBJECT:
+        if (a_value && typeof a_value == "object") {
+          a_resultInfo.error = false;
+          for(let name in a_type.fields) {
+            a_resultInfo.path.push(name);
+            let value = _buildType(a_type.fields[name], a_value[name], a_options, a_resultInfo, true, false);
+            if (!a_resultInfo.error) {
+              a_value[name] = value;
+            } else {
+              let path = fcf.normalizeObjectAddress(a_resultInfo.path);
+              if (a_resultInfo.error == 1) {
+                throw new fcf.Exception("NOT_MATCH_TYPE", { path: path, types: (a_resultInfo.types ? a_resultInfo.types : [] )});
+              } else {
+                throw new fcf.Exception("FIELD_NOT_SET", { path: path });
+              }
+            }
+            a_resultInfo.path.pop();
+          }
+          if (a_type.undeclared === false) {
+            for(let name in a_value) {
+              if (!(name in a_type.fields)) {
+                let path = fcf.normalizeObjectAddress(a_resultInfo.path);
+                throw new fcf.Exception("UNDECLARED_FIELD", { path: path, field: name });
+                break;
+              }
+            }
+          } else if (a_type.undeclared && typeof a_type.undeclared == "object") {
+            for(let name in a_value) {
+              if (!(name in a_type.fields)) {
+                a_resultInfo.path.push(name);
+                let value = _buildType(a_type.undeclared, a_value[name], a_options, a_resultInfo, true, false);
+                if (!a_resultInfo.error) {
+                  a_value[name] = value;
+                } else {
+                  let path = fcf.normalizeObjectAddress(a_resultInfo.path);
+                  if (a_resultInfo.error == 1) {
+                    throw new fcf.Exception("NOT_MATCH_TYPE", { path: path, types: (a_resultInfo.types ? a_resultInfo.types : [] )});
+                  } else {
+                    throw new fcf.Exception("FIELD_NOT_SET", { path: path });
+                  }
+                }
+                a_resultInfo.path.pop();
+              }
+            }
+          }
+        } else {
+          a_resultInfo.error = a_value === undefined ? 2 : 1;
+          if (a_rootType) {
+            a_resultInfo.types = ["object"];
+          }
+        }
+        break;
+      case fcf.ITERABLE:
+        if (fcf.isIterable(a_value)) {
+          a_resultInfo.error = false;
+          let counter = 0;
+          for(let item of a_value) {
+            a_resultInfo.path.push(counter.toString());
+            _buildType(a_type.item, item, a_options, a_resultInfo, true, true);
+            if (a_resultInfo.error) {
+              let path = fcf.normalizeObjectAddress(a_resultInfo.path);
+              if (a_resultInfo.error == 1) {
+                throw new fcf.Exception("NOT_MATCH_TYPE", { path: path, types: (a_resultInfo.types ? a_resultInfo.types : [] )});
+              } else {
+                throw new fcf.Exception("FIELD_NOT_SET", { path: path });
+              }
+            }
+            a_resultInfo.path.pop();
+            ++counter;
+          }
+        } else {
+          a_resultInfo.error = a_value === undefined ? 2 : 1;
+          if (a_rootType) {
+            a_resultInfo.types = ["array"];
+          }
+        }
+       break;
+      case fcf.SET:
+        let value = a_value;
+        if (typeof a_value == "string") {
+          let emp = true;
+          value = [];
+          for(let c of a_value) {
+            if (emp) {
+              emp = false;
+              value.push("");
+            }
+            if (c == "|" || c == ";") {
+              emp = true;
+            } else {
+              value[value.length-1] += c;
+            }
+          }
+        } 
+        if (Array.isArray(value)) {
+          let valid = true;
+          for(let i of value) {
+            if (!(i in a_type.items)) {
+              valid = false;
+              break;
+            }
+          }
+          if (valid) {
+            return value;
+          }
+        }
+        a_resultInfo.error = a_value === undefined ? 2 : 1;
+        if (a_rootType) {
+          let v = [];
+          for(let k in a_type.items) {
+            for(let itm of a_type.items[k]) {
+              v.push(JSON.stringify(itm));
+            }
+          }
+          let tstr = "enum[";
+          tstr += v.join(";");
+          tstr += "]";
+          a_resultInfo.types = [tstr];
+        }
+        break;
+      case fcf.ENUM:
+        if (a_value in a_type.items) {
+          for(let v of a_type.items[a_value]){
+            if (v === a_value) {
+              a_resultInfo.error = false;
+              return a_value;
+            }
+          }
+        }
+        a_resultInfo.error = a_value === undefined ? 2 : 1;
+        if (a_rootType) {
+          let v = [];
+          for(let k in a_type.items) {
+            for(let itm of a_type.items[k]) {
+              v.push(JSON.stringify(itm));
+            }
+          }
+          let tstr = "enum[";
+          tstr += v.join(";");
+          tstr += "]";
+          a_resultInfo.types = [tstr];
+        }
+        break;
+    }
+    if (a_resultInfo.error && !a_forceError) {
+      if ("default" in a_type) {
+        a_resultInfo.error = false;
+        return a_type.default;
+      } else {
+        return;
+      }
+    } else {
+      return a_value;
+    }
+  }
+
+  fcf.build = (a_type, a_value, a_options) => {
+    if (!a_type._valid) {
+      a_type = type(a_type);
+    }
+    let resultInfo = { error: false, path: [] };
+
+    a_value = _buildType(a_type, a_value, a_options, resultInfo, true, false);
+
+    if (resultInfo.error == 1) {
+      throw new fcf.Exception("NOT_MATCH_TYPE", { path: "", types: (resultInfo.types ? resultInfo.types : [] )});
+    } else if (resultInfo.error == 2) {
+      throw new fcf.Exception("FIELD_NOT_SET", { path: "" });
+    }
+
+    return a_value;
+  }
+
 
 
 
@@ -1770,18 +2268,15 @@
   ///   Console output:
   ///     123
   fcf.resolve = (a_obj, a_path, a_quiet) => {
-    if (typeof a_obj !== "object") {
-      return;
-    }
     let path = fcf.parseObjectAddress(a_path);
     for(let i = 0; i < path.length; ++i) {
-      a_obj = a_obj[path[i]];
-      if (a_obj === undefined) {
+      if ((typeof a_obj != "object" && typeof a_obj != "function" ) || a_obj[path[i]] === undefined) {
         if (a_quiet !== undefined && !a_quiet && i != path.length - 1) {
           throw new fcf.Exception("ACCESS_FAILED_FIELD_TOKENIZE", {command: a_path});
         }
         return;
       }
+      a_obj = a_obj[path[i]];
     }
     return a_obj;
   }
@@ -1811,14 +2306,14 @@
       key: undefined,
       object: undefined,
     };
-    if (typeof a_obj !== "object"){
+    if (typeof a_obj !== "object" && typeof a_obj !== "function"){
       return result;
     }
     let pathArr = fcf.parseObjectAddress(a_path, true);
     let cur = a_obj;
     for(var i = 0; i < pathArr.length-1; ++i) {
       let key = pathArr[i].part;
-      if (cur[key] === undefined || cur[key] === null) {
+      if (typeof cur[key] !== "object" && typeof cur[key] !== "function") {
         if (a_createObj) {
           if (pathArr[i].array){
             cur[key] = [];
@@ -1853,12 +2348,20 @@
       return a_root;
     for (let part of a_objectPath) {
       if (typeof part == "object") {
-        if (!(part.part in a_root))
-          a_root[part.part] = part.array ? [] : {};
+        if (part.array) {
+          if (!Array.isArray(a_root[part.part])) {
+            a_root[part.part] = [];
+          }
+        } else {
+          if (typeof a_root[part.part] !== "object" && typeof a_root[part.part] !== "function") {
+            a_root[part.part] = {};
+          }
+        }
         a_root = a_root[part.part];
       } else {
-        if (!(part in a_root))
+        if (typeof a_root[part] !== "object" && typeof a_root[part] !== "function") {
           a_root[part] = {};
+        }
         a_root = a_root[part];
       }
     }
@@ -2088,8 +2591,10 @@
       mod = undefined;
       pos = -1;
     }
+    let subpath = ""
     if (pos != -1) {
-      return {module: mod, subpath: path.substring(pos+1)};
+      subpath = path.substring(pos+1);
+      return {module: mod, subpath: subpath};
     }
     let rootPath = fcf.getPath(path);
     if (!a_isServerPath || a_isServerPath === "*") {
@@ -2113,14 +2618,24 @@
     } else {
       modDirs = [fcf.getConfiguration().webModuleDirectory];
     }
+    let result = undefined;
     for(let modDir of modDirs) {
       modDir = fcf.normalizePath(modDir);
-      if (_isServer && (a_isServerPath || a_isServerPath === "*") && cwd == modDir) {
+      if (_isServer && a_isServerPath && cwd == modDir) {
         continue;
       }
-      if ((pos = rootPath.indexOf(modDir)) == 0){
-        mod = rootPath.substring(modDir.length+1).split("/")[0].split("\\")[0];
-        if (_isServer && (a_isServerPath || a_isServerPath === "*") && (cwd == modDir+"/"+mod || cwd == modDir+"\\"+mod)) {
+      if (_isServer && a_isServerPath){
+        let cwdu = fcf.rtrim(cwd, "/") + "/";
+        let cpath = subpath ? cwdu + subpath : fcf.getPath(path);
+        if (cpath.indexOf(cwdu) == 0 && cwdu.indexOf(modDir) == 0 && modDir != cwdu) {
+          continue;
+        }
+      }
+      let modDirEU = modDir + "/";
+      let modDirE  = pos = rootPath.indexOf(modDirEU) == 0 ? modDirEU : undefined;
+      if (modDirE !== undefined){
+        mod = rootPath.substring(modDir.length+1).split("/")[0];
+        if (_isServer && a_isServerPath && (cwd == modDir + "/" + mod)) {
           mod = undefined;
           pos = -1;
         } else if (!mod) {
@@ -2251,7 +2766,6 @@
     }
     return result;
   }
-
 
 
   //////////////////////////////////////////////////////////////////////////////
@@ -2497,6 +3011,7 @@
 
 
 
+
   /// @class fcf.Actions
   /// @brief The analogue of the Promise class with extended functionality.
   /// @details a) Has the ability to get the current result:
@@ -2559,14 +3074,14 @@
         a_options = a_cb;
         a_cb = undefined;
       }
-      this._flags    = (a_options && !!a_options.deferred ? ACTIONS_FLAGS_DEFERRED : 0) |
+      this._flags     = (a_options && !!a_options.deferred ? ACTIONS_FLAGS_DEFERRED : 0) |
                        (a_options && !!a_options.noexcept ? ACTIONS_FLAGS_NOEXCEPT : 0) |
                        (a_options && !!a_options.quiet    ? ACTIONS_FLAGS_QUIET : 0);
-      this._stack    = [];
+      this._stack     = [];
       if (a_options && a_options.context)
         fcf.setContext(a_options.context);
-      this._state    = fcf.getState();
-      this._errorcbs = [];
+      this._state     = fcf.getState();
+      this._errorcbs  = [];
       if (a_options && a_options.errorResult)
         this._errorResult = a_options.errorResult;
       if (typeof a_cb == "function") {
@@ -2635,6 +3150,16 @@
       return this;
     }
 
+
+    wait(a_timeout) {
+      a_timeout = parseFloat(a_timeout);
+      a_timeout = !isNaN(a_timeout) && a_timeout > 0 ? a_timeout : 0;
+      return this.then((a_res, a_act)=>{
+        setTimeout(()=>{
+          a_act.complete();
+        }, a_timeout);
+      });
+    }
 
 
     /// @method fcf.Actions each(object|array|function a_obj, function a_cb)
@@ -2770,6 +3295,9 @@
             return false;
           let act = {
             _complete: false,
+            isFinished: function(){
+              return this._complete;
+            },
             complete: function(a_value){
               if (_isServer)
                 fcf.setState(self._state);
@@ -2867,24 +3395,43 @@
     ///   });
     ///
     ///   // stderr: Some error
-    catch(a_cb) {
-      if (!this._stack)
-        return;
-      this._flags |= ACTIONS_FLAGS_CATCH;
+    catch(a_options, a_cb) {
+      if (typeof a_options == "function"){
+        a_cb = a_options;
+        a_options = undefined;
+      }
+      const force = a_options && typeof a_options == "object"  ? a_options.force
+                                                               : !!a_options;
+      const shadow = a_options && typeof a_options == "object" ? a_options.shadow
+                                                               : false;
+      if (!shadow) {
+        this._flags |= ACTIONS_FLAGS_CATCH;
+      }
       let cerror;
       if (a_cb) {
-        if (this._error) {
+        let forseError = !this._error && (this._flags & ACTIONS_FLAGS_NOEXCEPT) && force && this._ferror ? this._ferror : undefined;
+        if (this._error || forseError) {
+          let err = this._error || forseError;
           try {
-            let e = a_cb.call(this, this._error);
+            let e = a_cb.call(this, err);
             if (e instanceof Error) {
               this._error = e;
             }
           } catch(e) {
-            this._error = e;
+            if (!forseError) {
+              this._error = e;
+            }
             cerror = e;
           }
+        } else {
+          this._errorcbs.push(
+            {
+              force:  !!force,
+              shadow: !!shadow,
+              cb:     a_cb
+            }
+          );
         }
-        this._errorcbs.push(a_cb);
       }
       if (cerror) {
         throw cerror;
@@ -2925,7 +3472,7 @@
         this._stack.push({cb: a_cb, args: undefined, finally: true, autoComplete: fcf.getParamCount(a_cb) < 2 });
         if (this._error) {
           try {
-            a_cb.call(this, undefined, {complete: ()=>{}, error: ()=>{}});
+            a_cb.call(this, undefined, {complete: ()=>{}, error: ()=>{}, isFinished: ()=>{ return true;} });
           } catch (e) {
             this._error = e;
           }
@@ -2948,7 +3495,9 @@
       return this;
     }
 
-
+    empty(){
+      return !(this._flags & ACTIONS_FLAGS_RUN) && !this._stack.length;
+    }
 
     /// @method Error error()
     /// @brief Returns the current error set in the object
@@ -2961,12 +3510,19 @@
     error(a_error) {
       if (!arguments.length) {
         return this._error;
+      } else if (typeof a_error === "boolean"){
+        return a_error ? this._error || this._ferror : this._error;
       }
-      if (!this._error) {
-        this._error = a_error;
-        this._callErrors();
+      if (this._flags & ACTIONS_FLAGS_NOEXCEPT) {
+        this._ferror = a_error;
+        this._callForceErrors();
       } else {
-        this._error = a_error;
+        if (!this._error) {
+          this._error = a_error;
+          this._callErrors();
+        } else {
+          this._error = a_error;
+        }
       }
       return this;
     }
@@ -3027,10 +3583,10 @@
     options(a_options) {
       if (!arguments.length){
         return {
-          noexcept: this._flags & ACTIONS_FLAGS_NOEXCEPT ? true : false,
-          quiet: this._flags & ACTIONS_FLAGS_QUIET ? true : false,
-          deferred: this._flags & ACTIONS_FLAGS_DEFERRED ? true : false,
-          errorResult: this._errorResult
+          noexcept:     this._flags & ACTIONS_FLAGS_NOEXCEPT  ? true : false,
+          quiet:        this._flags & ACTIONS_FLAGS_QUIET     ? true : false,
+          deferred:     this._flags & ACTIONS_FLAGS_DEFERRED  ? true : false,
+          errorResult:  this._errorResult
         };
       } else {
         if ("noexcept" in a_options){
@@ -3073,7 +3629,7 @@
       let cerror;
       for (let i = 0; i < this._errorcbs.length; ++i) {
         try {
-          let e = this._errorcbs[i].call(this, this._error);
+          let e = this._errorcbs[i].cb.call(this, this._error);
           if (e instanceof Error) {
             this._error = e;
           }
@@ -3085,23 +3641,36 @@
       for (let i = 0; i < this._stack.length; ++i){
         if (this._stack[i].finally){
           try {
-            this._stack[i].cb.call(this, undefined, {complete: ()=>{}, error: ()=>{}});
+            this._stack[i].cb.call(this, undefined, {complete: ()=>{}, error: ()=>{}, isFinished: ()=>{ return true; } });
           } catch(e) {
             this._error = e;
           }
         }
       }
-      if (!(this._flags & ACTIONS_FLAGS_QUIET)) {
-        if (!(this._flags & ACTIONS_FLAGS_CATCH)){
-          setTimeout(()=>{
-            if (!(this._flags & ACTIONS_FLAGS_CATCH) && !(this._flags & ACTIONS_FLAGS_QUIET)){
-              fcf.log.err("FCF", "Unhandled error in fcf.Actions (to handle catch method or \"quiet\" flag). Error: ", this._error)
-            }
-          }, 0);
-        }
+      if (!(this._flags & ACTIONS_FLAGS_CATCH) && !(this._flags & ACTIONS_FLAGS_QUIET) && !(this._flags & ACTIONS_FLAGS_NOEXCEPT)){
+        setTimeout(()=>{
+          if (!(this._flags & ACTIONS_FLAGS_CATCH) && !(this._flags & ACTIONS_FLAGS_QUIET) && !(this._flags & ACTIONS_FLAGS_NOEXCEPT)){
+            fcf.log.err("FCF", "Unhandled error in fcf.Actions (to handle catch method or \"quiet\" flag). Error: ", this._error)
+          }
+        }, 0);
       }
       if (cerror){
         throw cerror;
+      }
+    }
+
+    _callForceErrors() {
+      for (let i = 0; i < this._errorcbs.length; ++i) {
+        if (!this._errorcbs[i].force) {
+          continue;
+        }
+        let call = this._errorcbs[i];
+        this._errorcbs.splice(i, 1);
+        --i;
+        try {
+          call.cb.call(this, this._ferror);
+        } catch(e) {
+        }
       }
     }
 
@@ -3120,6 +3689,9 @@
       let cbi = this._stack.shift();
       let act = {
         _end: false,
+        isFinished: function(){
+          return this._end;
+        },
         complete: function(a_value) {
           if (_isServer)
             fcf.setState(self._state);
@@ -3130,8 +3702,7 @@
           if ((typeof Promise !== "undefined" && a_value instanceof Promise) || a_value instanceof fcf.Actions){
             a_value
             .then((a_value)=>{
-              if (!cbi.finally)
-                self._result = a_value;
+              self._result = a_value;
               self._execute();
             })
             .catch((a_error)=>{
@@ -3139,24 +3710,25 @@
               this.error(a_error);
             })
           } else {
-            if (!cbi.finally)
-              self._result = a_value;
+            self._result = a_value;
             self._execute();
           }
         },
         error: function(a_error) {
           if (_isServer)
           fcf.setState(self._state);
+          self._flags  &= ~ACTIONS_FLAGS_RUN;
+          self._result = undefined;
           if (self._flags & ACTIONS_FLAGS_NOEXCEPT){
+            self._ferror = a_error;
+            self._callForceErrors();
             this.complete();
             return;
           }
           if (this._end || self._error)
             return;
-          this._end = true;
-          self._flags &= ~ACTIONS_FLAGS_RUN;
-          self._result = undefined;
-          self._error = a_error ? a_error : new Error("Unknown error");
+          this._end    = true;
+          self._error  = a_error ? a_error : new Error("Unknown error");
           self._callErrors();
         },
       };
@@ -3219,6 +3791,124 @@
   const ACTIONS_FLAGS_QUIET    = 8;
   const ACTIONS_FLAGS_CATCH    = 16;
 
+  fcf.ActionsQueue = class {
+    constructor(a_options) {
+      this._asyncActions = {};
+      this._lastAction   = undefined;
+      this._completions  = [];
+    }
+
+    getActions() {
+      let actions = fcf.actions();
+      let runAct;
+      actions.then((a_res, a_act)=>{
+        runAct = a_act
+      });
+      if (this._completions.length) {
+        let completions = this._completions;
+        this._completions = [];
+        for(let c of completions){
+          c();
+        }
+      }
+      if (this._lastAction) {
+        let lastActions = this._lastAction;
+        this._lastAction = { actions: actions };
+        lastActions.actions.finally(()=>{
+          runAct.complete();
+        });
+      } else {
+        this._lastAction = { actions: actions };
+        runAct.complete();
+      }
+      return actions;
+    }
+
+    getAsyncActions(a_group, a_appendMode) {
+      a_group = a_group.toString();
+
+      if (this._completions.length) {
+        let completions = this._completions;
+        this._completions = [];
+        for(let c of completions){
+          c();
+        }
+      }
+
+      let actions = fcf.actions();
+      let runAct;
+      actions.then((a_res, a_act)=>{
+        runAct = a_act
+      });
+      let currentActions;
+      if (
+          (!this._lastAction || this._lastAction.counter === 0 || this._lastAction.group !== a_group) &&
+          (!a_appendMode || !this._asyncActions[a_group])
+      ) {
+        currentActions = {
+          actions:      fcf.actions(),
+          completeAct:  undefined,
+          complete:     undefined,
+          group:        a_group,
+          runActs:      [runAct],
+          counter:      1,
+        }
+        currentActions.actions.then((a_res, a_act)=>{
+          currentActions.completeAct = a_act;
+        });
+        let lastActions = this._lastAction;
+        this._lastAction = currentActions;
+        if (!this._asyncActions[a_group]) {
+          this._asyncActions[a_group] = [];
+        }
+        this._asyncActions[a_group].push(currentActions);
+        if (lastActions) {
+          lastActions.actions.finally(()=>{
+            currentActions.active = true;
+            for(let ca of currentActions.runActs){
+              ca.complete();
+            }
+          });
+        } else {
+          currentActions.active = true;
+          for(let ca of currentActions.runActs){
+            ca.complete();
+          }
+        }
+      } else {
+        currentActions = (a_appendMode && this._asyncActions[a_group])
+                                        ? this._asyncActions[a_group][0]
+                                        : this._lastAction;
+        ++currentActions.counter;
+        if (currentActions.active) {
+          runAct.complete();
+        } else {
+          currentActions.runActs.push(runAct);
+        }
+      }
+      this._completions.push(()=>{
+        actions.finally((a_res)=>{
+          --currentActions.counter;
+          if (!currentActions.counter) {
+            this._asyncActions[a_group].shift();
+            if (!this._asyncActions[a_group].length) {
+              delete this._asyncActions[a_group];
+            }
+            currentActions.completeAct.complete();
+          }
+          if (this._completions.length) {
+            let completions = this._completions;
+            this._completions = [];
+            for(let c of completions){
+              c();
+            }
+          }
+          return a_res;
+        });
+      });
+      return actions;
+    }
+  }
 
 
   /// @fn fcf.module(object a_options)
@@ -3531,7 +4221,15 @@
                                     fcf.resolve(moduleInfo, ["files", filePath, "loadState"]);
             let resultTemplate    = fcf.resolve(moduleInfo, ["webFiles", filePath, "result"]) ||
                                     fcf.resolve(moduleInfo, ["files", filePath, "result"]);
-            let needLoad = !loadStateTemplate || !fcf.tokenize(loadStateTemplate, {}, {quiet: true});
+            let needLoad = !loadStateTemplate;
+            if (!needLoad){
+              try {
+                needLoad = !fcf.tokenize(loadStateTemplate, {}, {result: "auto"});
+              }catch(e){
+                needLoad = true;
+                fcf.log.err("FCF", `Failed tokenize load state for the module ${a_module}.\n`, e);
+              }
+            }
             (
               needLoad
                 ? fcf.load(path, {async: _globalSyncModuleLoad == 0})
@@ -5096,25 +5794,39 @@
     /// @param object a_baseExceptionData - Basic exception object data, this argument can be used to recover the error object received from the server in JSON format
     /// @param object a_args = {} - Object with exception object arguments
     /// @param Error a_subException - Nested error object, to indicate the cause of the underlying exception
-    constructor(a_nameOrMessageOrException, a_args, a_subException) {
+    constructor(a_nameOrMessageOrException, a_args, a_stack, a_subException) {
       super(a_nameOrMessageOrException);
       let exceptionName;
       let template;
       let stackTxt;
       let stackTxtStartLevel = 1;
 
-      if (a_args instanceof Error) {
-        a_subException = a_args;
-        a_args = {};
+      a_subException = undefined;
+      a_stack        = undefined;
+      a_args         = undefined;
+      for(let i = 1; i < arguments.length; ++i) {
+        if (arguments[i] instanceof Error){
+          a_subException = arguments[i];
+          break;
+        }
+      }
+      for(let i = 1; i < arguments.length; ++i) {
+        if (typeof arguments[i] == "string"){
+          a_stack = arguments[i];
+          break;
+        }
+      }
+      for(let i = 1; i < arguments.length; ++i) {
+        if (typeof arguments[i] == "object" && !(arguments[i] instanceof Error)) {
+          a_args = arguments[i];
+          break;
+        }
       }
 
       if (Array.isArray(a_args)) {
         for(var i = 0; i < a_args.length; ++i)
           this[i+1] = a_args[i];
-      } else if (a_args instanceof Error){
-        a_subException = a_args;
-        a_args = undefined;
-      } else if (typeof a_args == "object"){
+      } else if (typeof a_args == "object") {
         for(let key in a_args)
           this[key] = a_args[key];
       }
@@ -5162,11 +5874,27 @@
             this[key] = a_nameOrMessageOrException[key];
           exceptionName = a_nameOrMessageOrException.name;
         }
-      }
+        if (typeof this.exception == "object" && !(this.exception instanceof Error)){
+          this.exception = new fcf.Exception(this.exception);
+        }
+     }
+
+     if (a_stack) {
+       let originStartLine = _parseStack(this.stack.split("\n")).preStart + 1;
+       let newStartLine    = _parseStack(a_stack.split("\n")).preStart + 1;
+       this.stack = this.stack.split("\n").slice(0, originStartLine).concat(
+                       a_stack.split("\n").slice(newStartLine)
+                    ).join("\n");
+       stackTxt = this.stack;
+       stackTxtStartLevel = 0;
+       this.stackArr = undefined;
+     }
 
       this.name             = exceptionName;
       this._templateMessage = template;
-      this.exception        = a_subException;
+      if (a_subException) {
+        this.exception        = a_subException;
+      }
       if (!Array.isArray(this.stackArr)) {
         if (!stackTxt)
           stackTxt = typeof console === "object" &&  console.trace === "function" ? console.trace() : (new Error()).stack
@@ -5194,6 +5922,10 @@
       let message = "";
       message = fcf.t(this._templateMessage, a_language);
       message = fcf.tokenize(message, this, {quiet: true});
+      if (this.exceptionServer && (this.exceptionServer.server || this.exceptionServer.alias || this.exceptionServer.uuid)) {
+        message += ` [${fcf.str(this.exceptionServer.server)}:${fcf.str(this.exceptionServer.alias)}:${fcf.str(this.exceptionServer.uuid)}]`;
+      }
+
       if (a_enableStack) {
         message += "\nStack: " + fcf.replaceAll("\n" + fcf.stackToString(this), "\n", "\n  ");
       }
@@ -5213,8 +5945,8 @@
       }
       return message;
     }
-  }
 
+  }
 
 
   /// @fn fcf.addException(string a_messageName, string a_messageText)
@@ -5448,6 +6180,8 @@
 
   let _state = {context: new fcf.Context(), state: {}};
 
+
+
   /// @class fcf.EventEmitter
   /// @brief Base event source object
   class EventEmitter {
@@ -5455,13 +6189,19 @@
       this._eventEmitterEvents = {};
     }
 
-    /// @method on(string a_name, function a_cb)
+    /// @method function on(string a_name, function a_cb)
     /// @brief Binds an event handler
     /// @param string a_name - Event name
     /// @param function a_cb - Event handler
     ///                   - Function signature: (async or simple) a_cb(mixed data)
     ///                     - mixed data Event data
-    on(a_name, a_cb) {
+    on(a_name, a_options, a_cb) {
+      if (typeof a_options == "function"){
+        a_cb = a_options;
+      }
+      if (typeof a_options != "object"){
+        a_options = {};
+      }
       if (!(a_name in this._eventEmitterEvents)) {
         this._eventEmitterEvents[a_name] = {};
       }
@@ -5473,7 +6213,9 @@
       }
       let id = fcf.id();
       a_cb._eventEmitterEvents[a_name][id] = 1;
-      this._eventEmitterEvents[a_name][id] = a_cb;
+      this._eventEmitterEvents[a_name] = fcf.append({}, this._eventEmitterEvents[a_name]);
+      this._eventEmitterEvents[a_name][id] = {cb: a_cb, ignoreBreak: !!a_options.ignoreBreak};
+      return a_cb;
     }
 
 
@@ -5487,6 +6229,9 @@
       if (typeof a_name == "function") {
         a_cb = a_name;
         a_name = undefined;
+      }
+      if (!a_cb && !a_name) {
+        return;
       }
       let eventNames = {};
       if (a_name) {
@@ -5516,17 +6261,33 @@
     /// @result fcf.Actions - Deferred action end event object
     emit(a_name, a_data) {
       if (!(a_name in this._eventEmitterEvents)) {
-        return fcf.actions();
+        return fcf.actions().result(a_data);
       }
+      let lastError;
       return fcf.actions()
-      .each(this._eventEmitterEvents[a_name], (a_id, a_cb)=>{
-        return a_cb(a_data);
-      });
+      .each(this._eventEmitterEvents[a_name], (a_id, a_info)=>{
+        if (lastError && !a_info.ignoreBreak) {
+          return;
+        }
+        return fcf.actions({noexcept: true})
+        .then(()=>{
+          return a_info.cb(a_data);
+        })
+        .catch(true, (a_error)=>{
+          lastError = a_error;
+        });
+      })
+      .then((a_res, a_act)=>{
+        if (!lastError) {
+          a_act.complete(a_data);
+        } else {
+          a_act.error(lastError);
+        }
+      })
     }
   };
 
   fcf.EventEmitter = EventEmitter;
-
 
 
   /// @class fcf.Logger
@@ -6349,6 +7110,9 @@
     ///                             - { array1: [ 2 ], array2: [ 1, 2 ], array3: [ 2 ] };
     constructor(a_options) {
       super();
+      this._aq                = new fcf.ActionsQueue();
+      this._observers         = {};
+      this._observersPaths    = {};
       this._config            = [[], [], []];
       this._config[0].push({
         merge: {
@@ -6394,14 +7158,101 @@
       if (a_options && a_options.isDefault) {
         _configuration = this;
       }
-      this._apply();
-      if (a_options && a_options.configuration instanceof fcf.Configuration) {
-        a_options.configuration.on("update_after", (a_info)=>{
-          this._apply(a_info.object);
-        })
+      this._append(undefined, 0, true);
+    }
+
+    on(a_eventName, a_options, a_callback) {
+      if (typeof a_options == "function"){
+        a_callback = a_options;
+        a_options = {};
+      }
+      if (typeof a_callback != "function") {
+        return;
+      }
+      let enp = a_eventName.split(":");
+      if (enp.length > 1) {
+        if (enp[0] == "change_item") {
+          enp.shift();
+          this._onChange(enp, a_eventName, a_callback, false, 1);
+        } else if (enp[0] == "change_item_after") {
+          a_options.ignoreBreak = true;
+          enp.shift();
+          this._onChange(enp, a_eventName, a_callback, false, 2);
+        } else if (enp[0] == "update_item_before") {
+          enp.shift();
+          this._onChange(enp, a_eventName, a_callback, true, 0);
+        } else if (enp[0] == "update_item") {
+          enp.shift();
+          this._onChange(enp, a_eventName, a_callback, true, 1);
+        } else if (enp[0] == "update_item_after") {
+          a_options.ignoreBreak = true;
+          enp.shift();
+          this._onChange(enp, a_eventName, a_callback, true, 2);
+        }
+      }
+      if (a_eventName == "update_after") {
+        a_options.ignoreBreak = true;
+      }
+      return super.on.call(this, a_eventName, a_options, a_callback);
+    }
+
+    detach(a_eventName, a_callback) {
+      if (arguments.length == 1 && typeof a_eventName == "function") {
+        a_callback = a_eventName;
+        a_eventName = undefined;
+      }
+      if (typeof a_callback === "function" && a_callback.___fcfConfChange){
+        for(let callUUID in a_callback.___fcfConfChange){
+          if (this._observers[callUUID]){
+            let paths = this._observers[callUUID].paths;
+            for(let path of paths) {
+              delete this._observersPaths[path][callUUID];
+              if (fcf.empty(this._observersPaths[path])) {
+                delete this._observersPaths[path];
+              }
+            }
+            delete this._observers[callUUID];
+            delete a_callback.___fcfConfChange[callUUID];
+          }
+        }
+      }
+      return super.detach.apply(this, arguments);
+    }
+
+    _onChange(a_paths, a_eventName, a_function, a_notEqual, a_level) {
+      a_paths = Array.isArray(a_paths)                ? a_paths :
+                a_paths && typeof a_paths == "string" ? [a_paths] :
+                                                        [];
+      if (!a_paths.length) {
+        return;
+      }
+
+      if (typeof a_function !== "function"){
+        return;
+      }
+
+      if (!a_function.___fcfConfChange) {
+        Object.defineProperty(a_function, "___fcfConfChange", { value: {}, writable: false, enumerable: false });
+      }
+      let callUUID = fcf.uuid();
+      a_function.___fcfConfChange[callUUID] = 1;
+
+      for(let path of a_paths) {
+        if (!this._observersPaths[path]) {
+          this._observersPaths[path] = {};
+        }
+        let pathArr = fcf.parseObjectAddress(path);
+        this._observersPaths[path][callUUID] = { event: a_eventName, level: a_level, notEqual: a_notEqual, path: pathArr, paths: a_paths };
+        this._observers[callUUID] = {paths: a_paths};
       }
     }
 
+    appendDefault(a_config) {
+      if (typeof a_config != "object") {
+        return this._aq.getActions();
+      }
+      return this._append(a_config, 0);
+    }
 
 
     /// @method appendPackage(object a_config)
@@ -6412,15 +7263,10 @@
     ///          added by the fcf.Configuration.prototype.append method
     /// @param object a_config - Object with the fields of the added configuration
     appendPackage(a_config) {
-      if (typeof a_config != "object")
-        return;
-      this._config[1].push(a_config);
-      this._apply(a_config);
-      if (a_config instanceof fcf.Configuration){
-        a_config.on("update_after", (a_info)=>{
-          this._apply(a_info.object);
-        })
+      if (typeof a_config != "object") {
+        return this._aq.getActions();
       }
+      return this._append(a_config, 1);
     }
 
 
@@ -6433,69 +7279,229 @@
     ///          added by the fcf.Configuration.prototype.append method
     /// @param object a_config - Object with the fields of the added configuration
     append(a_config) {
-      if (typeof a_config != "object")
-        return;
-      if (!(a_config instanceof fcf.Configuration) &&
-          !(this._config[2][this._config[2].length-1] instanceof fcf.Configuration) &&
-          typeof this._config[2][this._config[2].length-1] == "object") {
-        this._applyConfig(a_config, this._config[2][this._config[2].length-1]);
-      } else {
-        this._config[2].push(a_config);
+      if (typeof a_config != "object") {
+        return this._aq.getActions();
       }
-      this._apply(a_config);
-      if (a_config instanceof fcf.Configuration){
-        a_config.on("update_after", (a_info)=>{
-          this._apply(a_info.object);
+      return this._append(a_config, 2);
+    }
+
+    _append(a_config, a_level, a_isModuleDirectoriesExists) {
+      let state = {};
+      let beforeCalls = [];
+      let afterCalls = [];
+      let calls = [];
+      let resConf = {};
+      let repConfItem = false;
+      let exconf = [undefined, undefined, undefined];
+      let lastError;
+      let isModuleDirectoriesExists = a_isModuleDirectoriesExists !== undefined ? a_isModuleDirectoriesExists :
+                                      a_config && typeof(a_config) == "object"  ? "moduleDirectories" in a_config :
+                                                                                  false;
+
+      return this._aq.getActions()
+      .then(()=>{
+        if (!a_config) {
+          return;
+        }
+        return this.emit("update_before", {object: a_config, configuration: this, state: state, level: a_level});
+      })
+      .then(()=>{
+        if (!a_config) {
+          return;
+        }
+        let fillMap     = {};
+        for(let pathStr in this._observersPaths) {
+          for(let uuid in this._observersPaths[pathStr]) {
+            let callInfo = this._observersPaths[pathStr][uuid];
+            let ptr = fcf.resolveEx(a_config, callInfo.path);
+            if (callInfo.event in fillMap) {
+              if (ptr.object && ptr.key in ptr.object){
+                fillMap[callInfo.event].paths.push(callInfo.path);
+              }
+              continue;
+            }
+            if (!ptr.object || !(ptr.key in ptr.object)){
+              break;
+            }
+            let data = { object: a_config, configuration: this, state: state, level: a_level, paths: [callInfo.path] };
+            fillMap[callInfo.event] = data;
+            [beforeCalls, calls, afterCalls][callInfo.level].push({
+              name:     callInfo.event,
+              data:     data,
+              notEqual: callInfo.notEqual,
+              ignore:   false,
+            });
+          }
+        }
+        return fcf.actions()
+        .each(beforeCalls, (a_key, a_callInfo)=>{
+          return this.emit(a_callInfo.name, a_callInfo.data);
+        });
+      })
+      .then(()=>{
+        if (a_level == 2 &&
+            !!a_config &&
+            !(a_config instanceof fcf.Configuration) &&
+            !(this._config[2][this._config[2].length-1] instanceof fcf.Configuration) &&
+            typeof this._config[2][this._config[2].length-1] == "object") {
+          repConfItem = { dest: this._config[2][this._config[2].length-1], source: fcf.Configuration.clone(a_config) };
+        }
+        exconf[a_level] = a_config;
+        this._apply(exconf, resConf);
+        for(let cv of [calls, afterCalls]) {
+          for(let c of cv) {
+            if (!c.notEqual) {
+              let paths = [];
+              for(let p of c.data.paths) {
+                let originValue = fcf.resolve(this, p);
+                let newValue = fcf.resolve(resConf, p);
+                if (!fcf.equal(originValue, newValue)) {
+                  paths.push(p);
+                }
+              }
+              c.data.paths = paths;
+              if (paths.length == 0) {
+                c.ignore = true;
+              }
+            }
+          }
+        }
+      })
+      .then(()=>{
+        if (!a_config) {
+          return;
+        }
+        return this.emit("update", {object: a_config, configuration: this, newConfiguration: resConf, state: state, level: a_level});
+      })
+      .then(()=>{
+        return fcf.actions()
+        .each(calls, (a_key, a_callInfo)=>{
+          if (a_callInfo.ignore){
+            return;
+          }
+          a_callInfo.data.newConfiguration = resConf;
+          return this.emit(a_callInfo.name, a_callInfo.data);
+        });
+      })
+      .then(()=>{
+        if (repConfItem) {
+          this._applyConfig(repConfItem.source, repConfItem.dest);
+        } else {
+          this._pushItem(exconf[a_level], a_level);
+        }
+        this._copyToSelf(resConf);
+        if (_isServer && isModuleDirectoriesExists) {
+          libResolver.appendModuleDirectory(this.moduleDirectories);
+        }
+        fcf.appendTranslate();
+      })
+      .then(()=>{
+        if (a_config instanceof fcf.Configuration) {
+          a_config.on("update_after", (a_info) => {
+            return this._append(a_info.object, a_info.level, a_info.isModuleDirectoriesExists);
+          });
+        }
+      })
+      .then(()=>{
+        if (!a_config) {
+          return;
+        }
+        return fcf.actions({noexcept: true})
+        .then(()=>{
+          return this.emit("update_after", {object: a_config, configuration: this, state: state, level: a_level, isModuleDirectoriesExists: isModuleDirectoriesExists});
         })
+        .catch(true, (a_error)=>{
+          if (!lastError) {
+            lastError = a_error;
+          }
+        });
+      })
+      .then(()=>{
+        return fcf.actions()
+        .each(afterCalls, (a_key, a_callInfo)=>{
+          if (a_callInfo.ignore){
+            return;
+          }
+          return fcf.actions({noexcept: true})
+          .then(()=>{
+            return this.emit(a_callInfo.name, a_callInfo.data);
+          })
+          .catch(true, (a_error)=>{
+            if (!lastError) {
+              lastError = a_error;
+            }
+          });
+        });
+      })
+      .then((a_res, a_act)=>{
+        if (lastError){
+          a_act.error(lastError);
+        } else {
+          a_act.complete();
+        }
+      });
+    }
+
+    _pushItem(a_item, a_level) {
+      if (a_item instanceof fcf.Configuration) {
+        for(let i = 0; i < 3; ++i) {
+          const l = Math.min(i, a_level);
+          this._config[l].push(fcf.Configuration.clone(a_item._config[i]));
+        }
+      } else {
+        this._config[a_level].push(fcf.Configuration.clone(a_item));
       }
     }
 
-    _apply(a_object) {
-      if (a_object) {
-        this.emit("update_before", {object: a_object, configuration: this});
+    _apply(a_exConfig, a_destination) {
+      let actions = fcf.actions();
+      let index = 0;
+      for(let index = 0; index < this._config.length; ++index) {
+        for(let conf of this._config[index]) {
+          this._applyConfig(conf, a_destination);
+        }
+        if (a_exConfig[index]) {
+          this._applyConfig(a_exConfig[index], a_destination);
+        }
       }
+      this._build(a_destination);
+    }
+
+    _copyToSelf(a_object){
       for(let key in this){
-        if (key[0] != "_" && key != "merge") {
+        if (key[0] != "_") {
           delete this[key];
         }
       }
-      for(let level of this._config) {
-        for(let conf of level) {
-          this._applyConfig(conf);
-        }
-      }
-      if (_isServer){
-        libResolver.appendModuleDirectory(this.moduleDirectories);
-      }
-      this._build();
-      if (a_object) {
-        this.emit("update_after", {object: a_object, configuration: this});
+      for(let key in a_object){
+        this[key] = a_object[key];
       }
     }
 
     _applyConfig(a_configuration, a_destination) {
       if (!a_configuration || typeof a_configuration !== "object")
         return;
-      if (!a_destination) {
-        a_destination = this;
-      }
 
-      this.merge = fcf.append({}, this.merge, a_configuration.merge);
+      a_destination.merge = fcf.append({}, this.merge, a_destination.merge, a_configuration.merge);
       let mergeInfo = {};
-      for(let k in this.merge) {
-        let itm = this.merge[k];
+      for(let k in a_destination.merge) {
+        let itm = a_destination.merge[k];
         let file;
+        let type;
         if (typeof itm === "object") {
           file = itm.file;
+          type = itm;
           itm  = itm.function;
         }
         let func = typeof itm == "string" && itm ? itm : false;
-        if (file && typeof fcf.resolve(_isServer ? global : window, func) != "function") {
-          fcf.require(file, {async: false});
-        }
-        if (typeof fcf.resolve(_isServer ? global : window, func) != "function") {
-          fcf.log.wrn("FCF", `Could not find merge function ${func} for config parameter "${k}"`);
-          func = false;
+        if (func) {
+          if (file && typeof fcf.resolve(_isServer ? global : window, func) != "function") {
+            fcf.require(file, {async: false});
+          }
+          if (typeof fcf.resolve(_isServer ? global : window, func) != "function") {
+            fcf.log.wrn("FCF", `Could not find merge function ${func} for config parameter "${k}"`);
+            func = false;
+          }
         }
         let karr = fcf.parseObjectAddress(k);
         let m = { items: mergeInfo };
@@ -6505,40 +7511,61 @@
           }
           m = m.items[ki];
         }
-        m.func = func;
+        if (func !== false) {
+          m.func = func;
+        }
+        if (type && type.type) {
+          m.type = fcf.type(type);
+        }
       }
-      function merge(a_mergeInfo, a_key, a_result, a_dstObject, a_srcObject, a_isRoot, a_merge) {
-        if (a_mergeInfo.items[a_key] || a_isRoot){
+      function merge(a_mergeInfo, a_key, a_result, a_dstObject, a_srcObject, a_isRoot, a_merge, a_ignoreAppend) {
+        if (a_mergeInfo.items[a_key] || a_isRoot) {
           let func = a_mergeInfo.items[a_key] ? a_mergeInfo.items[a_key].func : false;
+          let type = a_mergeInfo.items[a_key] ? a_mergeInfo.items[a_key].type : false;
           func = func && fcf.resolve(typeof global == "object" ? global : window, func);
-          if (func) {
+          if (func && !a_ignoreAppend) {
             if (a_key in a_dstObject) {
-              a_result[a_key] = func(fcf.clone(a_dstObject[a_key]), fcf.clone(a_srcObject[a_key]));
+              let source = fcf.Configuration.clone(a_srcObject[a_key]);
+              if (type) {
+                source = fcf.build(type, source);
+              }
+              a_result[a_key] = func(fcf.Configuration.clone(a_dstObject[a_key]), source);
             } else {
               if (a_merge) {
-                a_result[a_key] = fcf.clone(a_srcObject[a_key]);
+                let source = fcf.Configuration.clone(a_srcObject[a_key]);
+                if (type) {
+                  source = fcf.build(type, source);
+                }
+                a_result[a_key] = source;
               }
             }
           } else {
             if (a_merge) {
-              a_result[a_key] = fcf.clone(a_srcObject[a_key]);
+              let source = fcf.Configuration.clone(a_srcObject[a_key]);
+              if (type) {
+                source = fcf.build(type, source);
+              }
+              a_result[a_key] = source;
             }
           }
           if (a_mergeInfo.items[a_key]) {
             let item = a_mergeInfo.items[a_key];
             for(let k in item.items) {
               if (a_srcObject[a_key] && k in a_srcObject[a_key]) {
-                if (a_key in a_dstObject) {
-                  merge(a_mergeInfo.items[a_key], k, a_result[a_key], a_dstObject[a_key], a_srcObject[a_key], false, item.items[k].func !== undefined);
-                } else {
-                  a_result[a_key][k] = fcf.clone(a_srcObject[a_key][k]);
-                }
+                merge(a_mergeInfo.items[a_key],
+                      k,
+                      a_result[a_key],
+                      a_dstObject[a_key],
+                      a_srcObject[a_key],
+                      false, 
+                      item.items[k].func !== undefined || item.items[k].type !== undefined,
+                      !(a_key in a_dstObject));
               }
             }
           }
         } else {
           if (a_merge) {
-            a_result[a_key] = fcf.clone(a_srcObject[a_key]);
+            a_result[a_key] = fcf.Configuration.clone(a_srcObject[a_key]);
           }
         }
       }
@@ -6552,12 +7579,12 @@
 
     }
 
-    _build() {
-      this._tokenizeFunctions = { functions: {}, items: {} };
+    _build(a_destination) {
+      a_destination._tokenizeFunctions = { functions: {}, items: {} };
       let fobjects = {};
       let newCalls = [];
-      let sfunctions = this.tokenize && this.tokenize.functions ? this.tokenize.functions : [];
-      let sobjects = this.tokenize && this.tokenize.objects ? this.tokenize.objects : {};
+      let sfunctions = a_destination.tokenize && a_destination.tokenize.functions ? a_destination.tokenize.functions : [];
+      let sobjects = a_destination.tokenize && a_destination.tokenize.objects ? a_destination.tokenize.objects : {};
       for(let func of sfunctions) {
         let l   = typeof func.object == "string"                                   ? func.object :
                   Array.isArray(func.object) && typeof func.object[0] == "string"  ? func.object[0] :
@@ -6589,8 +7616,8 @@
       let sources = [sfunctions, newCalls];
       for(let source of sources) {
         for(let func of source) {
-          let tf = this._tokenizeFunctions;
-          func = fcf.clone(func);
+          let tf = a_destination._tokenizeFunctions;
+          func = fcf.Configuration.clone(func);
           let l   = typeof func.object == "string"                                   ? func.object :
                     Array.isArray(func.object) && typeof func.object[0] == "string"  ? func.object[0] :
                                                                                        "";
@@ -6634,8 +7661,8 @@
           }
         }
       }
-      this._tokenizeEnvironment = { };
-      this._tokenizeEnvironmentInfo = { parts: {} };
+      a_destination._tokenizeEnvironment = { };
+      a_destination._tokenizeEnvironmentInfo = { parts: {} };
       for(let i = 0; i < 2; ++i) {
         let objects = !i ? fobjects : sobjects;
         let overwrite = !!i;
@@ -6643,7 +7670,7 @@
           let path = fcf.parseObjectAddress(sourcePath);
           let subPath = fcf.clone(path);
           let key = subPath.pop();
-          let root = fcf.prepare(this._tokenizeEnvironment, subPath);
+          let root = fcf.prepare(a_destination._tokenizeEnvironment, subPath);
           let item  = typeof objects[sourcePath] === "string" ? { variable: objects[sourcePath] } :
                       typeof objects[sourcePath] === "object" ? objects[sourcePath] :
                                                           { };
@@ -6662,7 +7689,7 @@
           } catch(e) {
           }
 
-          let p = this._tokenizeEnvironmentInfo;
+          let p = a_destination._tokenizeEnvironmentInfo;
           for(let pathItem of path) {
             if (!p.parts[pathItem]) {
               p.parts[pathItem] = { parts: {} };
@@ -6674,10 +7701,33 @@
           }
         }
       }
-      fcf.appendTranslate();
     }
   };
 
+
+  fcf.Configuration.clone = (a_source) => {
+      if (a_source && typeof a_source == "object") {
+        if (a_source instanceof Date) {
+          return new Date(a_source)
+        } else if (Array.isArray(a_source)) {
+          let res = [];
+          for(let s of a_source) {
+            res.push(fcf.Configuration.clone(s));
+          }
+          return res;
+        } else if (a_source.__proto__ == {}.__proto__) {
+          let res = {};
+          for(let k in a_source) {
+            res[k] = fcf.Configuration.clone(a_source[k]);
+          }
+          return res;
+        } else {
+          return a_source;
+        }
+      } else {
+        return a_source;
+      }
+    }
 
 
   /// @fn fcf.Configuration fcf.getConfiguration()
@@ -6698,7 +7748,7 @@
   fcf.NDetails.mergeSourcesConfig = (a_dst, a_source) => {
     a_dst    = a_dst || {};
     a_source = a_source || {};
-    let result = fcf.clone(a_dst);
+    let result = fcf.Configuration.clone(a_dst);
     for(let packageName in a_source) {
       result[packageName] = fcf.append({}, a_dst[packageName], a_source[packageName]);
       result[packageName].files       = fcf.append(true, {}, a_dst[packageName] && a_dst[packageName].files, a_source[packageName] && a_source[packageName].files);
@@ -6709,18 +7759,19 @@
   }
 
   fcf.NDetails.mergePackagesConfig = (a_dst, a_source) => {
-    let result = fcf.clone(a_dst);
+    let result = fcf.Configuration.clone(a_dst);
     for(let packageName in a_source) {
       if (!result[packageName]) {
-        result[packageName] = fcf.clone(a_source[packageName]);
+        result[packageName] = fcf.Configuration.clone(a_source[packageName]);
       } else {
-        fcf.append(result[packageName], fcf.clone(a_source[packageName]));
+        fcf.append(result[packageName], fcf.Configuration.clone(a_source[packageName]));
       }
     }
     return result;
   }
 
   new fcf.Configuration({enableDefaultParams: true, isDefault: true});
+
 
 
 

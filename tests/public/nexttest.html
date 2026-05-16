@@ -1,0 +1,23 @@
+<html>
+<header>
+  <script src="/node_modules/fcf-framework-core/fcf.js"></script>
+  <script src="/node_modules/fcf-framework-unitest/unitest.js"></script>
+</header>
+<body>
+  <h1>UniTests2</h1>
+  <script>
+  fcf.getEventChannel().on("unitest_message", (a_message)=>{
+    document.getElementById("output").innerHTML += `[${fcf.pad(a_message.level, 7, " ", "c")}]: ${a_message.message}\n`;
+  });
+  function runTest(a_test) {
+    document.getElementById("output").innerHTML = "";
+    let tests = a_test ? [a_test] : false;
+    fcf.NUnitest.unitest.run({ tests:  tests });
+  }
+  </script>
+  <fieldset>
+    <legend>Output</legend>
+    <pre id="output"></pre>
+  </fieldset>
+</body>
+</html>
