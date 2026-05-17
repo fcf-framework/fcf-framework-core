@@ -37,7 +37,7 @@ fcf.test("Class fcf.Configuration", async (a_unitest) => {
   }
 
   {
-    let configuration = new fcf.Configuration();
+    let configuration = new fcf.Configuration({mergeParamNames: ["merge"]});
 
     (fcf.isServer() ? global : window).mergeFunctions = {
       param: (a_current, a_source) => {
@@ -75,7 +75,7 @@ fcf.test("Class fcf.Configuration", async (a_unitest) => {
   }
 
   {
-    let configuration = new fcf.Configuration({enableDefaultParams: true});
+    let configuration = new fcf.Configuration({enableDefaultParams: true, mergeParamNames: ["merge"]});
     configuration.append({
       merge: {
         "packages.test1.array1": "fcf.append",
@@ -130,7 +130,7 @@ fcf.test("Class fcf.Configuration", async (a_unitest) => {
   }
 
   {
-    let configuration = new fcf.Configuration();
+    let configuration = new fcf.Configuration({mergeParamNames: ["merge"]});
     let e = configuration.on("update_item_before:value", (a_event)=>{
       a_unitest.equal(a_event.object.level, a_event.level);
       a_event.object.value = 111;
@@ -140,7 +140,7 @@ fcf.test("Class fcf.Configuration", async (a_unitest) => {
     a_unitest.equal(configuration.value, 111);
   }
   {
-    let configuration = new fcf.Configuration();
+    let configuration = new fcf.Configuration({mergeParamNames: ["merge"]});
     let e = configuration.on("update_item_before:value", (a_event)=>{
       a_unitest.equal(a_event.object.level, a_event.level);
       a_event.object.value = 111;
@@ -150,7 +150,7 @@ fcf.test("Class fcf.Configuration", async (a_unitest) => {
     a_unitest.equal(configuration.value, 111);
   }
   {
-    let configuration = new fcf.Configuration();
+    let configuration = new fcf.Configuration({mergeParamNames: ["merge"]});
     let e = configuration.on("update_item_before:value", (a_event)=>{
       a_unitest.equal(a_event.object.level, a_event.level);
     })
@@ -162,7 +162,7 @@ fcf.test("Class fcf.Configuration", async (a_unitest) => {
     a_unitest.equal(configuration.value, 2)
   }
   {
-    let configuration = new fcf.Configuration();
+    let configuration = new fcf.Configuration({mergeParamNames: ["merge"]});
     let e = configuration.on("update_item_before:value", (a_event)=>{
       a_unitest.equal(a_event.object.level, a_event.level);
       a_event.object.value = 111;
@@ -172,7 +172,7 @@ fcf.test("Class fcf.Configuration", async (a_unitest) => {
     a_unitest.equal(configuration.value, 111)
   }
   {
-    let configuration = new fcf.Configuration();
+    let configuration = new fcf.Configuration({mergeParamNames: ["merge"]});
     let e = configuration.on("update_item_before:value", (a_event)=>{
       a_unitest.equal(a_event.object.level, a_event.level);
     })
@@ -187,7 +187,7 @@ fcf.test("Class fcf.Configuration", async (a_unitest) => {
   }
   {
     let eevent = 0;
-    let configuration = new fcf.Configuration();
+    let configuration = new fcf.Configuration({mergeParamNames: ["merge"]});
     let e = configuration.on("update_item_before:object.value1", (a_event)=>{
       ++eevent;
     })
@@ -217,7 +217,7 @@ fcf.test("Class fcf.Configuration", async (a_unitest) => {
 
   {
     let eevent = 0;
-    let configuration = new fcf.Configuration();
+    let configuration = new fcf.Configuration({mergeParamNames: ["merge"]});
     let e = configuration.on("update_item_before:object.value1:value", (a_event)=>{
       ++eevent;
     })
@@ -251,7 +251,7 @@ fcf.test("Class fcf.Configuration", async (a_unitest) => {
   }
   {
     let eevent = 0;
-    let configuration = new fcf.Configuration();
+    let configuration = new fcf.Configuration({mergeParamNames: ["merge"]});
     let e = configuration.on("update_item:object.value1:value", (a_event)=>{
       ++eevent;
     })
@@ -285,7 +285,7 @@ fcf.test("Class fcf.Configuration", async (a_unitest) => {
   }
   {
     let eevent = 0;
-    let configuration = new fcf.Configuration();
+    let configuration = new fcf.Configuration({mergeParamNames: ["merge"]});
     let e = configuration.on("update_item_after:object.value1:value", (a_event)=>{
       ++eevent;
     })
@@ -319,7 +319,7 @@ fcf.test("Class fcf.Configuration", async (a_unitest) => {
   }
   {
     let eevent = 0;
-    let configuration = new fcf.Configuration();
+    let configuration = new fcf.Configuration({mergeParamNames: ["merge"]});
     let e = configuration.on("update_item:object.value1:value", (a_event)=>{
       a_unitest.equal(a_event.object.value, 1);
       a_unitest.equal(a_event.configuration.value, undefined);
@@ -332,7 +332,7 @@ fcf.test("Class fcf.Configuration", async (a_unitest) => {
   }
   {
     let eevent = 0;
-    let configuration = new fcf.Configuration();
+    let configuration = new fcf.Configuration({mergeParamNames: ["merge"]});
     let e = configuration.on("update_item_after:object.value1:value", (a_event)=>{
       a_unitest.equal(a_event.object.value, 1);
       a_unitest.equal(a_event.configuration.value, 1);
@@ -348,7 +348,7 @@ fcf.test("Class fcf.Configuration", async (a_unitest) => {
 
   {
     let eevent = 0;
-    let configuration = new fcf.Configuration();
+    let configuration = new fcf.Configuration({mergeParamNames: ["merge"]});
     let e = configuration.on("change_item:object.value1:value", (a_event)=>{
       a_unitest.equal(a_event.object.value, 1);
       a_unitest.equal(a_event.newConfiguration.value, 1);
@@ -363,7 +363,7 @@ fcf.test("Class fcf.Configuration", async (a_unitest) => {
   }
   {
     let eevent = 0;
-    let configuration = new fcf.Configuration();
+    let configuration = new fcf.Configuration({mergeParamNames: ["merge"]});
     let e = configuration.on("change_item_after:value", (a_event)=>{
       a_unitest.equal(a_event.object.value, 1);
       a_unitest.equal(a_event.configuration.value, 1);
@@ -379,7 +379,7 @@ fcf.test("Class fcf.Configuration", async (a_unitest) => {
 
   {
     let counter = 0;
-    let configuration = new fcf.Configuration();
+    let configuration = new fcf.Configuration({mergeParamNames: ["merge"]});
     configuration.on("change_item_after:value", (a_event)=>{
       ++counter;
       let e = new Error("E");
@@ -400,7 +400,7 @@ fcf.test("Class fcf.Configuration", async (a_unitest) => {
   }
   {
     let counter = 0;
-    let configuration = new fcf.Configuration();
+    let configuration = new fcf.Configuration({mergeParamNames: ["merge"]});
     configuration.on("update_after", (a_event)=>{
       ++counter;
       let e = new Error("E");

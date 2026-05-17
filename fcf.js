@@ -1230,7 +1230,7 @@
               value[value.length-1] += c;
             }
           }
-        } 
+        }
         if (Array.isArray(value)) {
           let valid = true;
           for(let i of value) {
@@ -7114,12 +7114,23 @@
       this._observers         = {};
       this._observersPaths    = {};
       this._config            = [[], [], []];
-      this._config[0].push({
-        merge: {
-          "merge": "fcf.append",
-        },
-      });
+      this._merge             = a_options && a_options.merge           ? a_options.merge : {};
+      this._mergeParamNames   = a_options && Array.isArray(a_options.mergeParamNames)                                    ? a_options.mergeParamNames :
+                                a_options && a_options.mergeParamNames && typeof(a_options.mergeParamNames) == "string"  ? [a_options.mergeParamNames] :
+                                                                                                                           [];
+      this._merge = fcf.append(this._merge);
+      for(let mergeParamName of this._mergeParamNames) {
+        this._merge[mergeParamName] = "fcf.append";
+      }
+
       if (a_options && a_options.enableDefaultParams) {
+        this._merge["moduleDirectories"] = "fcf.append";
+        this._merge["sources"]           = "fcf.NDetails.mergeSourcesConfig";
+        this._merge["aliases"]           = "fcf.append";
+        this._merge["translations"]      = "fcf.append";
+        this._merge["tokenize"]          = "fcf.NDetails.mergeTokenizeConfig";
+        this._merge["packages"]          = "fcf.NDetails.mergePackagesConfig";
+
         const compressFilePath  = "@{{directory}}@/@{{shortName}}@@{{!fcf.getContext().debug && name.indexOf(\".min.\") == -1 ? \".min\" : \"\"}}@.@{{extension}}@";
         this._config[0].push({
           warnEmptyContext:   false,
@@ -7132,14 +7143,6 @@
           tokenize:           {
                                 objects:   { },
                                 functions: [ ]
-                              },
-          merge:              {
-                                "moduleDirectories":    "fcf.append",
-                                "sources":              "fcf.NDetails.mergeSourcesConfig",
-                                "aliases":              "fcf.append",
-                                "translations":         "fcf.append",
-                                "tokenize":             "fcf.NDetails.mergeTokenizeConfig",
-                                "packages":             "fcf.NDetails.mergePackagesConfig"
                               },
           sources:            {
                                 "fcf-framework-core":     { webMain: "fcf.js",     webFilePath: { js: compressFilePath } },
@@ -7448,6 +7451,8 @@
           const l = Math.min(i, a_level);
           this._config[l].push(fcf.Configuration.clone(a_item._config[i]));
         }
+        this._merge = fcf.append({}, a_item._merge, this._merge);
+        this._mergeParamNames.unshift(...a_item._mergeParamNames);
       } else {
         this._config[a_level].push(fcf.Configuration.clone(a_item));
       }
@@ -7481,11 +7486,15 @@
     _applyConfig(a_configuration, a_destination) {
       if (!a_configuration || typeof a_configuration !== "object")
         return;
+      let mergeItems = {};
+      for(let mergeParamName of this._mergeParamNames) {
+        fcf.append(mergeItems, this[mergeParamName], a_destination[mergeParamName], a_configuration[mergeParamName]);
+      }
+      fcf.append(mergeItems, this._merge);
 
-      a_destination.merge = fcf.append({}, this.merge, a_destination.merge, a_configuration.merge);
       let mergeInfo = {};
-      for(let k in a_destination.merge) {
-        let itm = a_destination.merge[k];
+      for(let k in mergeItems) {
+        let itm = mergeItems[k];
         let file;
         let type;
         if (typeof itm === "object") {
@@ -7557,7 +7566,7 @@
                       a_result[a_key],
                       a_dstObject[a_key],
                       a_srcObject[a_key],
-                      false, 
+                      false,
                       item.items[k].func !== undefined || item.items[k].type !== undefined,
                       !(a_key in a_dstObject));
               }
@@ -7770,7 +7779,7 @@
     return result;
   }
 
-  new fcf.Configuration({enableDefaultParams: true, isDefault: true});
+  new fcf.Configuration({enableDefaultParams: true, isDefault: true, mergeParamNames: ["merge"]});
 
 
 
