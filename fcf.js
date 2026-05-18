@@ -21,6 +21,23 @@
   const _isServer = typeof module === "object" && typeof module.filename !== "undefined";
 
 
+  if (!fcf.isServer() && !fcf.NDetails.inlineExecution) {
+    fcf.NDetails.inlineExecution = {
+      execEnvironment: {
+        functions:        { functions: {}, items: {} },
+        environment:      { },
+        environmentInfo:  { parts: {} },
+      },
+      getEnvironment: ()=>{
+        return fcf.NDetails.inlineExecution.execEnvironment;
+      },
+      setEnvironment: (a_environment)=> {
+        fcf.NDetails.inlineExecution.execEnvironment.functions       = a_environment.functions;
+        fcf.NDetails.inlineExecution.execEnvironment.environment     = a_environment.environment;
+        fcf.NDetails.inlineExecution.execEnvironment.environmentInfo = a_environment.environmentInfo;
+      }
+    }
+  }
 
   //////////////////////////////////////////////////////////////////////////////
   // SERVER SIDE INCLUDES
@@ -5160,7 +5177,7 @@
         func = eval(funcCode);
         _inlineFunctions.set(funcCode, func);
       }
-      return func(fcf.getConfiguration()._tokenizeEnvironment || {}, typeof a_environment !== "object" ? {} : a_environment);
+      return func(fcf.NDetails.inlineExecution.getEnvironment().environment || {}, typeof a_environment !== "object" ? {} : a_environment);
     }
   }
   const _inlineFunctions = new Map();
@@ -5268,7 +5285,7 @@
             if (codeStr.search(/^[a-zA-Z_. ][a-zA-Z0-9_. ]*$/) != -1 && codeStr !== "true" && codeStr !== "false" && codeStr !== "undefined" && codeStr !== "NaN" && codeStr !== "null"){
               let ptr = fcf.resolveEx(a_environment, codeStr);
               if (ptr.object === undefined || !(ptr.key in ptr.object)) {
-                ptr = fcf.resolveEx(fcf.getConfiguration()._tokenizeEnvironment, codeStr);
+                ptr = fcf.resolveEx(fcf.NDetails.inlineExecution.getEnvironment().environment, codeStr);
                 if (ptr.object === undefined){
                   throw new fcf.Exception("ACCESS_FAILED_FIELD_TOKENIZE", {command: codeStr});
                 }
@@ -6186,7 +6203,8 @@
   /// @brief Base event source object
   class EventEmitter {
     constructor(){
-      this._eventEmitterEvents = {};
+      Object.defineProperty(this, "___fcf_field_event_emitter_events___", { value: {}, writable: false, enumerable: false });
+      //this.___fcf_field_event_emitter_events___ = {};
     }
 
     /// @method function on(string a_name, function a_cb)
@@ -6202,19 +6220,19 @@
       if (typeof a_options != "object"){
         a_options = {};
       }
-      if (!(a_name in this._eventEmitterEvents)) {
-        this._eventEmitterEvents[a_name] = {};
+      if (!(a_name in this.___fcf_field_event_emitter_events___)) {
+        this.___fcf_field_event_emitter_events___[a_name] = {};
       }
-      if (typeof a_cb._eventEmitterEvents !== "object") {
-        Object.defineProperty(a_cb, "_eventEmitterEvents", { value: {}, writable: false, enumerable: false });
+      if (typeof a_cb.___fcf_field_event_emitter_events___ !== "object") {
+        Object.defineProperty(a_cb, "___fcf_field_event_emitter_events___", { value: {}, writable: false, enumerable: false });
       }
-      if (!a_cb._eventEmitterEvents[a_name]){
-        a_cb._eventEmitterEvents[a_name] = {};
+      if (!a_cb.___fcf_field_event_emitter_events___[a_name]){
+        a_cb.___fcf_field_event_emitter_events___[a_name] = {};
       }
       let id = fcf.id();
-      a_cb._eventEmitterEvents[a_name][id] = 1;
-      this._eventEmitterEvents[a_name] = fcf.append({}, this._eventEmitterEvents[a_name]);
-      this._eventEmitterEvents[a_name][id] = {cb: a_cb, ignoreBreak: !!a_options.ignoreBreak};
+      a_cb.___fcf_field_event_emitter_events___[a_name][id] = 1;
+      this.___fcf_field_event_emitter_events___[a_name] = fcf.append({}, this.___fcf_field_event_emitter_events___[a_name]);
+      this.___fcf_field_event_emitter_events___[a_name][id] = {cb: a_cb, ignoreBreak: !!a_options.ignoreBreak};
       return a_cb;
     }
 
@@ -6237,17 +6255,17 @@
       if (a_name) {
         eventNames[a_name] = 1;
       } else {
-        eventNames = a_cb._eventEmitterEvents;
+        eventNames = a_cb.___fcf_field_event_emitter_events___;
       }
-      if (!eventNames || !a_cb._eventEmitterEvents) {
+      if (!eventNames || !a_cb.___fcf_field_event_emitter_events___) {
         return;
       }
       for (let eventName in eventNames) {
-        if (!this._eventEmitterEvents[eventName] || !a_cb._eventEmitterEvents[eventName]) {
+        if (!this.___fcf_field_event_emitter_events___[eventName] || !a_cb.___fcf_field_event_emitter_events___[eventName]) {
           continue;
         }
-        for(let id in a_cb._eventEmitterEvents[eventName]) {
-          delete this._eventEmitterEvents[eventName][id];
+        for(let id in a_cb.___fcf_field_event_emitter_events___[eventName]) {
+          delete this.___fcf_field_event_emitter_events___[eventName][id];
         }
       }
     }
@@ -6260,12 +6278,12 @@
     /// @param mixed a_data - Event data
     /// @result fcf.Actions - Deferred action end event object
     emit(a_name, a_data) {
-      if (!(a_name in this._eventEmitterEvents)) {
+      if (!(a_name in this.___fcf_field_event_emitter_events___)) {
         return fcf.actions().result(a_data);
       }
       let lastError;
       return fcf.actions()
-      .each(this._eventEmitterEvents[a_name], (a_id, a_info)=>{
+      .each(this.___fcf_field_event_emitter_events___[a_name], (a_id, a_info)=>{
         if (lastError && !a_info.ignoreBreak) {
           return;
         }
@@ -7110,29 +7128,50 @@
     ///                             - { array1: [ 2 ], array2: [ 1, 2 ], array3: [ 2 ] };
     constructor(a_options) {
       super();
-      this._aq                = new fcf.ActionsQueue();
-      this._observers         = {};
-      this._observersPaths    = {};
-      this._config            = [[], [], []];
-      this._merge             = a_options && a_options.merge           ? a_options.merge : {};
-      this._mergeParamNames   = a_options && Array.isArray(a_options.mergeParamNames)                                    ? a_options.mergeParamNames :
-                                a_options && a_options.mergeParamNames && typeof(a_options.mergeParamNames) == "string"  ? [a_options.mergeParamNames] :
-                                                                                                                           [];
-      this._merge = fcf.append(this._merge);
-      for(let mergeParamName of this._mergeParamNames) {
-        this._merge[mergeParamName] = "fcf.append";
+      Object.defineProperty(this, "___fcf_field_configuration___", { value: {}, writable: false, enumerable: false });
+      this.___fcf_field_configuration___._forbiddenFields   = {
+                                                         "__proto__": 1,
+                                                         "___fcf_field_event_emitter_events___": 1,
+                                                         "___fcf_field_configuration___": 1,
+                                                         "___fcf_method_build___": 1,
+                                                         "___fcf_method_apply_config___": 1,
+                                                         "___fcf_method_copy_to_self___": 1,
+                                                         "___fcf_method_apply___": 1,
+                                                         "___fcf_method_push_item___": 1,
+                                                         "___fcf_method_append___": 1,
+                                                         "on": 1,
+                                                         "detach": 1,
+                                                         "emit": 1,
+                                                         "append": 1,
+                                                         "appendPackage": 1,
+                                                         "appendDefault": 1,
+                                                         "constructor": 1,
+                                                        };
+      this.___fcf_field_configuration___._aq                = new fcf.ActionsQueue();
+      this.___fcf_field_configuration___._observers         = {};
+      this.___fcf_field_configuration___._observersPaths    = {};
+      this.___fcf_field_configuration___._config            = [[], [], []];
+      this.___fcf_field_configuration___._merge             = a_options && a_options.merge           ? a_options.merge : {};
+      this.___fcf_field_configuration___._mergeParamNames   = a_options && Array.isArray(a_options.mergeParamNames) 
+                                                          ? a_options.mergeParamNames :
+                                                        a_options && a_options.mergeParamNames && typeof(a_options.mergeParamNames) == "string"  
+                                                          ? [a_options.mergeParamNames] :
+                                                            [];
+      this.___fcf_field_configuration___._merge = fcf.append(this.___fcf_field_configuration___._merge);
+      for(let mergeParamName of this.___fcf_field_configuration___._mergeParamNames) {
+        this.___fcf_field_configuration___._merge[mergeParamName] = "fcf.append";
       }
 
       if (a_options && a_options.enableDefaultParams) {
-        this._merge["moduleDirectories"] = "fcf.append";
-        this._merge["sources"]           = "fcf.NDetails.mergeSourcesConfig";
-        this._merge["aliases"]           = "fcf.append";
-        this._merge["translations"]      = "fcf.append";
-        this._merge["tokenize"]          = "fcf.NDetails.mergeTokenizeConfig";
-        this._merge["packages"]          = "fcf.NDetails.mergePackagesConfig";
+        this.___fcf_field_configuration___._merge["moduleDirectories"] = "fcf.append";
+        this.___fcf_field_configuration___._merge["sources"]           = "fcf.NDetails.mergeSourcesConfig";
+        this.___fcf_field_configuration___._merge["aliases"]           = "fcf.append";
+        this.___fcf_field_configuration___._merge["translations"]      = "fcf.append";
+        this.___fcf_field_configuration___._merge["tokenize"]          = "fcf.NDetails.mergeTokenizeConfig";
+        this.___fcf_field_configuration___._merge["packages"]          = "fcf.NDetails.mergePackagesConfig";
 
         const compressFilePath  = "@{{directory}}@/@{{shortName}}@@{{!fcf.getContext().debug && name.indexOf(\".min.\") == -1 ? \".min\" : \"\"}}@.@{{extension}}@";
-        this._config[0].push({
+        this.___fcf_field_configuration___._config[0].push({
           warnEmptyContext:   false,
           defaultLanguage:    "en",
           moduleDirectories:  _isServer ? [libPath.join(require("path").dirname(require.main.filename), "node_modules")] : [],
@@ -7152,16 +7191,16 @@
         });
         if (_isServer) {
           let obj = require("./serverConfig.js");
-          this._config[0].push(obj);
+          this.___fcf_field_configuration___._config[0].push(obj);
         }
       }
       if (a_options && typeof a_options.configuration === "object") {
-        this._config[2].push(a_options.configuration);
+        this.___fcf_field_configuration___._config[2].push(a_options.configuration);
       }
       if (a_options && a_options.isDefault) {
         _configuration = this;
       }
-      this._append(undefined, 0, true);
+      this.___fcf_method_append___(undefined, 0, true);
     }
 
     on(a_eventName, a_options, a_callback) {
@@ -7206,15 +7245,15 @@
       }
       if (typeof a_callback === "function" && a_callback.___fcfConfChange){
         for(let callUUID in a_callback.___fcfConfChange){
-          if (this._observers[callUUID]){
-            let paths = this._observers[callUUID].paths;
+          if (this.___fcf_field_configuration___._observers[callUUID]){
+            let paths = this.___fcf_field_configuration___._observers[callUUID].paths;
             for(let path of paths) {
-              delete this._observersPaths[path][callUUID];
-              if (fcf.empty(this._observersPaths[path])) {
-                delete this._observersPaths[path];
+              delete this.___fcf_field_configuration___._observersPaths[path][callUUID];
+              if (fcf.empty(this.___fcf_field_configuration___._observersPaths[path])) {
+                delete this.___fcf_field_configuration___._observersPaths[path];
               }
             }
-            delete this._observers[callUUID];
+            delete this.___fcf_field_configuration___._observers[callUUID];
             delete a_callback.___fcfConfChange[callUUID];
           }
         }
@@ -7241,20 +7280,20 @@
       a_function.___fcfConfChange[callUUID] = 1;
 
       for(let path of a_paths) {
-        if (!this._observersPaths[path]) {
-          this._observersPaths[path] = {};
+        if (!this.___fcf_field_configuration___._observersPaths[path]) {
+          this.___fcf_field_configuration___._observersPaths[path] = {};
         }
         let pathArr = fcf.parseObjectAddress(path);
-        this._observersPaths[path][callUUID] = { event: a_eventName, level: a_level, notEqual: a_notEqual, path: pathArr, paths: a_paths };
-        this._observers[callUUID] = {paths: a_paths};
+        this.___fcf_field_configuration___._observersPaths[path][callUUID] = { event: a_eventName, level: a_level, notEqual: a_notEqual, path: pathArr, paths: a_paths };
+        this.___fcf_field_configuration___._observers[callUUID] = {paths: a_paths};
       }
     }
 
     appendDefault(a_config) {
       if (typeof a_config != "object") {
-        return this._aq.getActions();
+        return this.___fcf_field_configuration___._aq.getActions();
       }
-      return this._append(a_config, 0);
+      return this.___fcf_method_append___(a_config, 0);
     }
 
 
@@ -7267,9 +7306,9 @@
     /// @param object a_config - Object with the fields of the added configuration
     appendPackage(a_config) {
       if (typeof a_config != "object") {
-        return this._aq.getActions();
+        return this.___fcf_field_configuration___._aq.getActions();
       }
-      return this._append(a_config, 1);
+      return this.___fcf_method_append___(a_config, 1);
     }
 
 
@@ -7283,12 +7322,12 @@
     /// @param object a_config - Object with the fields of the added configuration
     append(a_config) {
       if (typeof a_config != "object") {
-        return this._aq.getActions();
+        return this.___fcf_field_configuration___._aq.getActions();
       }
-      return this._append(a_config, 2);
+      return this.___fcf_method_append___(a_config, 2);
     }
 
-    _append(a_config, a_level, a_isModuleDirectoriesExists) {
+    ___fcf_method_append___(a_config, a_level, a_isModuleDirectoriesExists) {
       let state = {};
       let beforeCalls = [];
       let afterCalls = [];
@@ -7301,7 +7340,7 @@
                                       a_config && typeof(a_config) == "object"  ? "moduleDirectories" in a_config :
                                                                                   false;
 
-      return this._aq.getActions()
+      return this.___fcf_field_configuration___._aq.getActions()
       .then(()=>{
         if (!a_config) {
           return;
@@ -7313,9 +7352,9 @@
           return;
         }
         let fillMap     = {};
-        for(let pathStr in this._observersPaths) {
-          for(let uuid in this._observersPaths[pathStr]) {
-            let callInfo = this._observersPaths[pathStr][uuid];
+        for(let pathStr in this.___fcf_field_configuration___._observersPaths) {
+          for(let uuid in this.___fcf_field_configuration___._observersPaths[pathStr]) {
+            let callInfo = this.___fcf_field_configuration___._observersPaths[pathStr][uuid];
             let ptr = fcf.resolveEx(a_config, callInfo.path);
             if (callInfo.event in fillMap) {
               if (ptr.object && ptr.key in ptr.object){
@@ -7345,12 +7384,12 @@
         if (a_level == 2 &&
             !!a_config &&
             !(a_config instanceof fcf.Configuration) &&
-            !(this._config[2][this._config[2].length-1] instanceof fcf.Configuration) &&
-            typeof this._config[2][this._config[2].length-1] == "object") {
-          repConfItem = { dest: this._config[2][this._config[2].length-1], source: fcf.Configuration.clone(a_config) };
+            !(this.___fcf_field_configuration___._config[2][this.___fcf_field_configuration___._config[2].length-1] instanceof fcf.Configuration) &&
+            typeof this.___fcf_field_configuration___._config[2][this.___fcf_field_configuration___._config[2].length-1] == "object") {
+          repConfItem = { dest: this.___fcf_field_configuration___._config[2][this.___fcf_field_configuration___._config[2].length-1], source: fcf.Configuration.clone(a_config) };
         }
         exconf[a_level] = a_config;
-        this._apply(exconf, resConf);
+        this.___fcf_method_apply___(exconf, resConf);
         for(let cv of [calls, afterCalls]) {
           for(let c of cv) {
             if (!c.notEqual) {
@@ -7388,11 +7427,11 @@
       })
       .then(()=>{
         if (repConfItem) {
-          this._applyConfig(repConfItem.source, repConfItem.dest);
+          this.___fcf_method_apply_config___(repConfItem.source, repConfItem.dest);
         } else {
-          this._pushItem(exconf[a_level], a_level);
+          this.___fcf_method_push_item___(exconf[a_level], a_level);
         }
-        this._copyToSelf(resConf);
+        this.___fcf_method_copy_to_self___(resConf);
         if (_isServer && isModuleDirectoriesExists) {
           libResolver.appendModuleDirectory(this.moduleDirectories);
         }
@@ -7401,7 +7440,7 @@
       .then(()=>{
         if (a_config instanceof fcf.Configuration) {
           a_config.on("update_after", (a_info) => {
-            return this._append(a_info.object, a_info.level, a_info.isModuleDirectoriesExists);
+            return this.___fcf_method_append___(a_info.object, a_info.level, a_info.isModuleDirectoriesExists);
           });
         }
       })
@@ -7445,52 +7484,57 @@
       });
     }
 
-    _pushItem(a_item, a_level) {
+    ___fcf_method_push_item___(a_item, a_level) {
       if (a_item instanceof fcf.Configuration) {
         for(let i = 0; i < 3; ++i) {
           const l = Math.min(i, a_level);
-          this._config[l].push(fcf.Configuration.clone(a_item._config[i]));
+          this.___fcf_field_configuration___._config[l].push(fcf.Configuration.clone(a_item.___fcf_field_configuration___._config[i]));
         }
-        this._merge = fcf.append({}, a_item._merge, this._merge);
-        this._mergeParamNames.unshift(...a_item._mergeParamNames);
+        this.___fcf_field_configuration___._merge = fcf.append({}, a_item.___fcf_field_configuration___._merge, this.___fcf_field_configuration___._merge);
+        this.___fcf_field_configuration___._mergeParamNames.unshift(...a_item.___fcf_field_configuration___._mergeParamNames);
       } else {
-        this._config[a_level].push(fcf.Configuration.clone(a_item));
+        this.___fcf_field_configuration___._config[a_level].push(fcf.Configuration.clone(a_item));
       }
     }
 
-    _apply(a_exConfig, a_destination) {
+    ___fcf_method_apply___(a_exConfig, a_destination) {
       let actions = fcf.actions();
       let index = 0;
-      for(let index = 0; index < this._config.length; ++index) {
-        for(let conf of this._config[index]) {
-          this._applyConfig(conf, a_destination);
+      for(let index = 0; index < this.___fcf_field_configuration___._config.length; ++index) {
+        for(let conf of this.___fcf_field_configuration___._config[index]) {
+          this.___fcf_method_apply_config___(conf, a_destination);
         }
         if (a_exConfig[index]) {
-          this._applyConfig(a_exConfig[index], a_destination);
+          this.___fcf_method_apply_config___(a_exConfig[index], a_destination);
         }
       }
-      this._build(a_destination);
+      let tokenizeInfo = {};
+      this.___fcf_method_build___(a_destination, tokenizeInfo);
+      if (fcf.getConfiguration() == this) {
+        fcf.NDetails.inlineExecution.setEnvironment(tokenizeInfo);
+      }
     }
 
-    _copyToSelf(a_object){
+    ___fcf_method_copy_to_self___(a_object){
       for(let key in this){
-        if (key[0] != "_") {
-          delete this[key];
-        }
+        delete this[key];
       }
       for(let key in a_object){
+        if (key in this.___fcf_field_configuration___._forbiddenFields) {
+          continue;
+        }
         this[key] = a_object[key];
       }
     }
 
-    _applyConfig(a_configuration, a_destination) {
+    ___fcf_method_apply_config___(a_configuration, a_destination) {
       if (!a_configuration || typeof a_configuration !== "object")
         return;
       let mergeItems = {};
-      for(let mergeParamName of this._mergeParamNames) {
+      for(let mergeParamName of this.___fcf_field_configuration___._mergeParamNames) {
         fcf.append(mergeItems, this[mergeParamName], a_destination[mergeParamName], a_configuration[mergeParamName]);
       }
-      fcf.append(mergeItems, this._merge);
+      fcf.append(mergeItems, this.___fcf_field_configuration___._merge);
 
       let mergeInfo = {};
       for(let k in mergeItems) {
@@ -7588,8 +7632,8 @@
 
     }
 
-    _build(a_destination) {
-      a_destination._tokenizeFunctions = { functions: {}, items: {} };
+    ___fcf_method_build___(a_destination, a_tokinizeInfo) {
+      a_tokinizeInfo.functions = { functions: {}, items: {} };
       let fobjects = {};
       let newCalls = [];
       let sfunctions = a_destination.tokenize && a_destination.tokenize.functions ? a_destination.tokenize.functions : [];
@@ -7625,7 +7669,7 @@
       let sources = [sfunctions, newCalls];
       for(let source of sources) {
         for(let func of source) {
-          let tf = a_destination._tokenizeFunctions;
+          let tf = a_tokinizeInfo.functions;
           func = fcf.Configuration.clone(func);
           let l   = typeof func.object == "string"                                   ? func.object :
                     Array.isArray(func.object) && typeof func.object[0] == "string"  ? func.object[0] :
@@ -7670,8 +7714,8 @@
           }
         }
       }
-      a_destination._tokenizeEnvironment = { };
-      a_destination._tokenizeEnvironmentInfo = { parts: {} };
+      a_tokinizeInfo.environment = { };
+      a_tokinizeInfo.environmentInfo = { parts: {} };
       for(let i = 0; i < 2; ++i) {
         let objects = !i ? fobjects : sobjects;
         let overwrite = !!i;
@@ -7679,7 +7723,7 @@
           let path = fcf.parseObjectAddress(sourcePath);
           let subPath = fcf.clone(path);
           let key = subPath.pop();
-          let root = fcf.prepare(a_destination._tokenizeEnvironment, subPath);
+          let root = fcf.prepare(a_tokinizeInfo.environment, subPath);
           let item  = typeof objects[sourcePath] === "string" ? { variable: objects[sourcePath] } :
                       typeof objects[sourcePath] === "object" ? objects[sourcePath] :
                                                           { };
@@ -7698,7 +7742,7 @@
           } catch(e) {
           }
 
-          let p = a_destination._tokenizeEnvironmentInfo;
+          let p = a_tokinizeInfo.environmentInfo;
           for(let pathItem of path) {
             if (!p.parts[pathItem]) {
               p.parts[pathItem] = { parts: {} };

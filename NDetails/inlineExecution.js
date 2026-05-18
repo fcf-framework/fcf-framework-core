@@ -141,15 +141,29 @@
 
   const PROHIBITED_METHODS = {"__defineGetter__": 1, "__defineSetter__": 1, "__lookupGetter__": 1, "__lookupSetter__": 1};
 
+  let execEnvironment = {
+    functions:        { functions: {}, items: {} },
+    environment:      { },
+    environmentInfo:  { parts: {} },
+  };
+
   module.exports = fcf.NDetails.inlineExecution = new (class {
     execute(a_command, a_args) {
       let instructions = typeof a_command == "object" ? a_command : this.parse(a_command);
       let info = {
-        env:  fcf.getConfiguration()._tokenizeEnvironment,
+        env:  execEnvironment.environment,
         args: a_args,
         command: a_command
       };
       return this._execute(info, instructions);
+    }
+    getEnvironment() {
+      return execEnvironment;
+    }
+    setEnvironment(a_environment) {
+      execEnvironment.functions       = a_environment.functions;
+      execEnvironment.environment     = a_environment.environment;
+      execEnvironment.environmentInfo = a_environment.environmentInfo;
     }
     _resolve(a_path, a_env) {
       for (let p of a_path) {
@@ -194,7 +208,7 @@
 
             found = items[0].t != "i" ? 0 : -1;
             if (call) {
-              calls = fcf.getConfiguration()._tokenizeFunctions;
+              calls = execEnvironment.functions;
               callsAll = [];
             }
             if (found == -1) {
@@ -221,7 +235,7 @@
                 lstObject = undefined;
                 let isEnv = false;
                 for(let source of sources) {
-                  envInfo = !call && isEnv ? fcf.getConfiguration()._tokenizeEnvironmentInfo : undefined;
+                  envInfo = !call && isEnv ? execEnvironment.environmentInfo : undefined;
                   isEnv = true;
                   object = source;
                   for (let i = 0; i < items.length && items[i].t == "i"; ++i) {
