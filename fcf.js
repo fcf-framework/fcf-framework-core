@@ -878,7 +878,29 @@
     }
   }
 
-  fcf.type = (a_type, a_description, a_declarations) => {
+  /// @fn object fcf.type(string|object a_type, object a_description)
+  /// @brief Creates a type description object for subsequent validation and data building.
+  /// @details The function transforms the input parameter `a_type` (a string, a numeric type identifier, or an array of types) into a structured type object.
+  ///          The resulting object includes validation rules (min, max, length, minLength, maxLength),
+  ///          conversion rules, default values, and the structure of nested elements for objects, arrays, iterables, and enums.
+  /// @param string|object a_type - Type definition. It can be:
+  ///               - A string (e.g., "string", "number", "array", "object", "enum").
+  ///               - A numeric identifier (e.g., fcf.STRING, fcf.NUMBER).
+  ///               - An array of types (to implement "one of many" logic).
+  ///               - An object containing a `type` property and additional rules.
+  /// @param object a_description - An object containing extended type description rules:
+  ///               - require (boolean) - Whether the field is mandatory.
+  ///               - convert (boolean) - Whether conversion should be performed.
+  ///               - default (mixed) - Default value.
+  ///               - min/max (number) - Boundaries for numbers.
+  ///               - length/minLength/maxLength (number) - Length parameters for strings.
+  ///               - item (object) - Type description for elements in arrays or iterables.
+  ///               - fields (object) - Field descriptions for objects (key is the field name, value is the type description).
+  ///               - undeclared (boolean|object) - Rules for fields not explicitly defined in `fields`.
+  ///               - items (array) - List of allowed values for `enum` or `set`.
+  /// @result object - A type object containing an internal `_valid = 1` flag.
+  /// @throws fcf.Exception - Throws "UNKNOWN_TYPE" if the provided type is not recognized.
+  fcf.type = (a_type, a_description) => {
     if (a_type._valid) {
       return a_type;
     }
@@ -1310,6 +1332,19 @@
     }
   }
 
+  /// @fn mixed fcf.build(object a_type, mixed a_value, object a_options)
+  /// @brief Performs validation and data building based on a specified type.
+  /// @details The function validates the `a_value` against the rules defined in the `a_type` object.
+  ///          If `a_type` is not already a valid type object, it will be converted using `fcf.type`.
+  ///          During the building process, the function can recursively process nested structures (objects, arrays, iterables).
+  ///          If the value matches the type, it is returned (potentially after conversion).
+  ///          If the value does not match the type, an `fcf.Exception` is thrown.
+  /// @param object a_type - The type object (created via `fcf.type`) defining the validation rules and structure.
+  /// @param mixed a_value - The source value to be validated and built.
+  /// @param object a_options - Additional options for controlling the building process
+  ///                           (Not used in the current implementation, reserved for future expansion).
+  /// @result mixed - The value that has passed validation and conforms to the specified type.
+  /// @throws fcf.Exception - Throws an exception upon type mismatch (e.g., "NOT_MATCH_TYPE", "FIELD_NOT_SET", "NUMBER_MIN", "STRING_LENGTH", etc.).
   fcf.build = (a_type, a_value, a_options) => {
     if (!a_type._valid) {
       a_type = type(a_type);
@@ -3168,6 +3203,14 @@
     }
 
 
+    /// @method fcf.Actions wait(number|string a_timeout)
+    /// @brief Adds a delay to the action execution queue.
+    /// @details Creates a new task in the `fcf.Actions` chain that will automatically complete after the specified number of milliseconds.
+    ///          This is useful for introducing artificial pauses in asynchronous chains or implementing timeouts.
+    ///          The method returns an `fcf.Actions` object, allowing the chain to be continued via `.then()`.
+    /// @param number|string a_timeout - The wait time in milliseconds. If the provided value is not a number or is <= 0,
+    ///                                  the delay is treated as 0.
+    /// @result fcf.Actions - An `fcf.Actions` object that will complete after the `a_timeout` period has elapsed.
     wait(a_timeout) {
       a_timeout = parseFloat(a_timeout);
       a_timeout = !isNaN(a_timeout) && a_timeout > 0 ? a_timeout : 0;
@@ -3391,17 +3434,24 @@
     }
 
 
-
     /// @method fcf.Actions catch(function a_cb)
+    /// @method fcf.Actions catch(boolean|object a_options, function a_cb)
     /// @brief Adds an error handler callback.
-    /// @details If the callback returns or throws an error object,
+    /// @details If an error occurs in the action chain, the provided handler is invoked.
+    ///          The method allows controlling the error handling behavior via an options object.
+    ///          If the callback returns or throws an error object,
     ///          then it replaces the current fcf.Actions error
     ///          When the handler is called when an error occurs,
     ///          exceptions thrown from the handler are not processed and go out
+    /// @param object a_options - The parameter can be:
+    ///               - **boolean**: If `true`, enables `force` mode.
+    ///               - **object**: An object containing settings:
+    ///                 - `force` (boolean) - If `true`, the handler will be called even if the error was already handled (or if `noexcept` is enabled).
+    ///                 - `shadow` (boolean) - If `true`, the handler will not set the `ACTIONS_FLAGS_CATCH` flag for the current action (allows "shadowing" the error without breaking the chain).
     /// @param function a_cb - Error handler callback
     ///       - Has the following :
     ///           undefined|Error a_cb(Error a_error)
-    /// @result fcf.Actions - Self object
+    /// @result fcf.Actions - Returns the `fcf.Actions` object for chain continuation.
     /// @example
     ///   (new fcf.Actions())
     ///   .then(()=>{
@@ -3512,6 +3562,12 @@
       return this;
     }
 
+    /// @method boolean fcf.Actions empty()
+    /// @brief Checks if the actions object is empty.
+    /// @details Returns `true` if the `fcf.Actions` object has no scheduled tasks (the stack is empty)
+    ///          and execution has not yet started (the `ACTIONS_FLAGS_RUN` flag is not set).
+    ///          This allows determining whether the entire action chain is idle or still awaiting execution.
+    /// @result boolean - Returns `true` if the action queue is empty and no actions are currently running; otherwise, `false`.
     empty(){
       return !(this._flags & ACTIONS_FLAGS_RUN) && !this._stack.length;
     }
@@ -3808,13 +3864,36 @@
   const ACTIONS_FLAGS_QUIET    = 8;
   const ACTIONS_FLAGS_CATCH    = 16;
 
+
+  /// @class fcf.ActionsQueue
+  /// @brief A class for managing asynchronous action queues and task grouping.
+  /// @details `fcf.ActionsQueue` is designed to coordinate the execution of multiple streams of asynchronous tasks.
+  ///          It allows combining `fcf.actions()` calls into logical groups, providing synchronization
+  ///          between them. The class supports mechanisms for tracking the completion of task groups and
+  ///          enables running tasks sequentially or in parallel within a single queue.
+  ///          Key features:
+  ///          - Managing the overall execution state for a group of actions.
+  ///          - `getActions()` method to retrieve the current queue.
+  ///          - `getAsyncActions(a_group, a_appendMode)` method to create or append to an existing
+  ///            group of asynchronous tasks, allowing one to wait for all tasks in the group to complete.
   fcf.ActionsQueue = class {
-    constructor(a_options) {
+    /// @method constructor fcf.ActionsQueue()
+    /// @brief Initializes a new instance of the actions queue.
+    /// @details Creates an object designed to track and group asynchronous tasks.
+    constructor(/*a_options*/) {
       this._asyncActions = {};
       this._lastAction   = undefined;
       this._completions  = [];
     }
 
+    /// @method fcf.Actions getActions()
+    /// @brief Retrieves an `fcf.Actions` object to manage the current queue.
+    /// @details This method returns a new `fcf.Actions` object representing the current task queue.
+    ///          If there is an active task, the method chains the new action to the
+    ///          completion of the previous one, ensuring sequential execution.
+    ///          Additionally, it executes all accumulated completion callbacks
+    ///          that were scheduled to run upon the conclusion of previous operations.
+    /// @result fcf.Actions - An actions object representing the current queue or linked to the last active task.
     getActions() {
       let actions = fcf.actions();
       let runAct;
@@ -3841,6 +3920,17 @@
       return actions;
     }
 
+    /// @method fcf.Actions getAsyncActions(string a_group, boolean a_appendMode)
+    /// @brief Creates or appends a group of asynchronous tasks to the queue.
+    /// @details This method allows grouping asynchronous actions. If a group with the specified name already exists,
+    ///          new tasks will be added to it (if `a_appendMode = true`).
+    ///          The method provides synchronization: the execution of the entire task group will wait for
+    ///          the completion of all tasks within that group. If a new group is created, it will wait
+    ///          for the completion of the previous active queue.
+    /// @param string a_group - The name of the task group.
+    /// @param boolean a_appendMode - If true, new tasks are appended to the existing group `a_group`.
+    ///                              If false, a new group is created.
+    /// @result fcf.Actions - An actions object that will complete after all tasks in the specified group have finished.
     getAsyncActions(a_group, a_appendMode) {
       a_group = a_group.toString();
 
@@ -5803,14 +5893,18 @@
 
 
 
-    /// @method constructor(string a_exceptionName, object a_args = {}, Error a_subException = undefined)
-    /// @method constructor(Error a_baseException, object a_args = {}, Error a_subException = undefined)
-    /// @method constructor(object a_baseExceptionData, object a_args = {}, Error a_subException = undefined)
-    /// @param string a_exceptionName - Exception name
-    /// @param Error a_baseException - The original exception object whose data is being copied
-    /// @param object a_baseExceptionData - Basic exception object data, this argument can be used to recover the error object received from the server in JSON format
-    /// @param object a_args = {} - Object with exception object arguments
-    /// @param Error a_subException - Nested error object, to indicate the cause of the underlying exception
+
+    /// @fn constructor(string|object|Error a_nameOrMessageOrException, object a_args = undefined, string a_stack = undefined, Error|fcf.Exception a_subException = undefined)
+    /// @brief Creates an instance of an exception.
+    /// @details The constructor supports multiple initialization modes:
+    ///          1. **String**: If a string is provided, it is used as the exception name. A message template is looked up in the exception registry.
+    ///          2. **Error Object**: If an existing Error object is passed, its data (message, stack) is copied into the new exception.
+    ///          3. **Data Object**: If a plain object is passed, its properties are copied to the exception, and its `name` property is used as the exception name.
+    ///          4. **Mixed Mode**: Allows passing additional arguments for message template substitution, a call stack, and a nested exception.
+    /// @param string|Error|object a_nameOrMessageOrException - The exception name, a message, or an existing Error object.
+    /// @param object|undefined a_args - Additional arguments (object or array) that will be added as exception properties and used for token substitution in the message template.
+    /// @param string|undefined a_stack - A stack trace string to manually set the stack.
+    /// @param Error|undefined a_subException - A nested exception (the cause of the current exception).
     constructor(a_nameOrMessageOrException, a_args, a_stack, a_subException) {
       super(a_nameOrMessageOrException);
       let exceptionName;
@@ -6213,6 +6307,7 @@
     /// @param function a_cb - Event handler
     ///                   - Function signature: (async or simple) a_cb(mixed data)
     ///                     - mixed data Event data
+    /// @result function - Returns a callback function that can be used to unsubscribe from the message handler in the detach method.
     on(a_name, a_options, a_cb) {
       if (typeof a_options == "function"){
         a_cb = a_options;
@@ -7152,9 +7247,9 @@
       this.___fcf_field_configuration___._observersPaths    = {};
       this.___fcf_field_configuration___._config            = [[], [], []];
       this.___fcf_field_configuration___._merge             = a_options && a_options.merge           ? a_options.merge : {};
-      this.___fcf_field_configuration___._mergeParamNames   = a_options && Array.isArray(a_options.mergeParamNames) 
+      this.___fcf_field_configuration___._mergeParamNames   = a_options && Array.isArray(a_options.mergeParamNames)
                                                           ? a_options.mergeParamNames :
-                                                        a_options && a_options.mergeParamNames && typeof(a_options.mergeParamNames) == "string"  
+                                                        a_options && a_options.mergeParamNames && typeof(a_options.mergeParamNames) == "string"
                                                           ? [a_options.mergeParamNames] :
                                                             [];
       this.___fcf_field_configuration___._merge = fcf.append(this.___fcf_field_configuration___._merge);
@@ -7203,6 +7298,27 @@
       this.___fcf_method_append___(undefined, 0, true);
     }
 
+    /// @method fcf.EventEmitter.on(string a_eventName, function a_callback)
+    /// @method fcf.EventEmitter.on(string a_eventName, object a_options, function a_callback)
+    /// @brief Subscribes to a configuration change event.
+    /// @details This method allows monitoring changes within the configuration object. It supports specialized events for tracking changes to specific fields or paths.
+    /// @param string a_eventName - The name of the event. Supported formats:
+    ///               - "update" - Triggered on any configuration change.
+    ///               - "update_before" - Triggered immediately before changes are applied.
+    ///               - "update_after" - Triggered after the configuration merging process is complete.
+    ///               - "change_item:path.to.field" - Triggered when a specific field is changed. This only works when you write a new different value from the current one.
+    ///               - "change_item_after:path.to.field" - Triggered after a specific field is changed. This only works when you write a new different value from the current one.
+    ///               - "update_item:path.to.field" - Triggered when a specific field is updated.
+    ///               - "update_item_before:path.to.field" - Triggered before a specific field is updated.
+    ///               - "update_item_after:path.to.field" - Triggered after a specific field is updated.
+    /// @param object a_options - Subscription options:
+    ///               - If an object is passed, it can contain:
+    ///                 - number level - Processing priority level (lower numbers are executed first).
+    /// @param function a_callback - The event handler function.
+    ///               - Signature: `(object a_eventData, object a_eventHeader)`
+    ///               - `a_eventData` - Event data (e.g., an object containing `newConfiguration` and `state`).
+    ///               - `a_eventHeader` - Event header (contains the event name).
+    /// @result function - Returns a callback function that can be used to unsubscribe from the message handler in the detach method.
     on(a_eventName, a_options, a_callback) {
       if (typeof a_options == "function"){
         a_callback = a_options;
@@ -7238,6 +7354,21 @@
       return super.on.call(this, a_eventName, a_options, a_callback);
     }
 
+    /// @fn function fcf.Configuration.detach(string a_eventName, function a_callback = undefined)
+    /// @brief Unsubscribes from a configuration change event.
+    /// @details This method allows removing an event handler that was previously registered via `on`.
+    ///          If only the event name is provided, all handlers for that event will be removed.
+    ///          If a function is provided, only the handler that matches the passed function will be removed.
+    /// @param string a_eventName - The name of the event (e.g., "update", "change_item:path").
+    /// @param function a_callback - The callback function to be detached.
+    /// @result void
+    ///
+    /// @fn function fcf.Configuration.detach(function a_callback)
+    /// @brief Unsubscribes a specific callback function from all configuration events.
+    /// @details If a function is passed as the first argument, the method finds all registrations of this
+    ///          callback for any configuration events and removes them.
+    /// @param function a_callback - The callback function to be detached.
+    /// @result void
     detach(a_eventName, a_callback) {
       if (arguments.length == 1 && typeof a_eventName == "function") {
         a_callback = a_eventName;
@@ -7289,6 +7420,13 @@
       }
     }
 
+    /// @method fcf.Actions fcf.Configuration.appendDefault(object a_config)
+    /// @brief Appends default configuration to the current configuration object.
+    /// @details This method is designed to integrate a set of configuration parameters. If the provided argument `a_config`
+    ///          is not an object, the method returns an `fcf.Actions` object that can be used for chaining asynchronous operations.
+    ///          Upon successful addition of an object, a merging process occurs according to the rules defined in the current configuration.
+    /// @param object a_config - The configuration object to be appended.
+    /// @result fcf.Actions - An actions object that completes after the configuration merging process is finished.
     appendDefault(a_config) {
       if (typeof a_config != "object") {
         return this.___fcf_field_configuration___._aq.getActions();
@@ -7304,6 +7442,7 @@
     ///          (fcf.Configuration.prototype.appendPackage) and then the user configurations
     ///          added by the fcf.Configuration.prototype.append method
     /// @param object a_config - Object with the fields of the added configuration
+    /// @result fcf.Actions - An actions object that completes after the configuration merging process is finished.
     appendPackage(a_config) {
       if (typeof a_config != "object") {
         return this.___fcf_field_configuration___._aq.getActions();
@@ -7320,6 +7459,7 @@
     ///          (fcf.Configuration.prototype.appendPackage) and then the user configurations
     ///          added by the fcf.Configuration.prototype.append method
     /// @param object a_config - Object with the fields of the added configuration
+    /// @result fcf.Actions - An actions object that completes after the configuration merging process is finished.
     append(a_config) {
       if (typeof a_config != "object") {
         return this.___fcf_field_configuration___._aq.getActions();
