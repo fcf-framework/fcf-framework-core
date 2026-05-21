@@ -878,16 +878,15 @@
     }
   }
 
-  /// @fn object fcf.type(string|object a_type, object a_description)
+  /// @fn object fcf.type(int|string|array[int|string|object] a_type, object a_description = undefined)
   /// @brief Creates a type description object for subsequent validation and data building.
   /// @details The function transforms the input parameter `a_type` (a string, a numeric type identifier, or an array of types) into a structured type object.
   ///          The resulting object includes validation rules (min, max, length, minLength, maxLength),
   ///          conversion rules, default values, and the structure of nested elements for objects, arrays, iterables, and enums.
-  /// @param string|object a_type - Type definition. It can be:
+  /// @param int|string|array[int|string|object] a_type - Type definition. It can be:
   ///               - A string (e.g., "string", "number", "array", "object", "enum").
   ///               - A numeric identifier (e.g., fcf.STRING, fcf.NUMBER).
   ///               - An array of types (to implement "one of many" logic).
-  ///               - An object containing a `type` property and additional rules.
   /// @param object a_description - An object containing extended type description rules:
   ///               - require (boolean) - Whether the field is mandatory.
   ///               - convert (boolean) - Whether conversion should be performed.
@@ -977,11 +976,10 @@
               type.fields[key] = fcf.type(a_description.fields[key]);
             }
           }
-          type.undeclared = typeof a_description.undeclared == "boolean"
-                              ? a_description.undeclared :
-                            a_description.undeclared
-                              ? fcf.type(a_description.undeclared) :
-                                undefined;
+          type.undeclared = a_description.undeclared === false                                      ? a_description.undeclared :
+                            a_description.undeclared === true                                       ? fcf.type(fcf.ANY) :
+                            a_description.undeclared || a_description.undeclared === fcf.UNDEFINED  ? fcf.type(a_description.undeclared) :
+                                                                                                      undefined;
           break;
         case fcf.ITERABLE:
         case "iterable":
@@ -1029,7 +1027,17 @@
     return type;
   }
 
-
+  const _createIterable = (a_value) => {
+    if (
+      Array.isArray(a_value) ||
+      a_value instanceof Map ||
+      a_value instanceof Set
+    ) {
+      return new a_value.__proto__.constructor();
+    } else {
+      return {};
+    }
+  }
 
   const _buildType = (a_type, a_value, a_options, a_resultInfo, a_rootType, a_forceError) => {
     switch(a_type.type) {
@@ -1064,8 +1072,13 @@
         }
         break;
       case fcf.BOOLEAN:
-        if (typeof a_value === "boolean") {
+        let value = a_value;
+        if (typeof a_value !== "boolean" && a_type.convert){
+          value = !!a_value;
+        }
+        if (typeof value === "boolean") {
           a_resultInfo.error = false;
+          a_value = value;
           break;
         }
         a_resultInfo.error = a_value === undefined ? 2 : 1;
@@ -1074,51 +1087,72 @@
         }
         break;
       case fcf.NUMBER:
-        if (typeof a_value === "number" && !isNaN(a_value)) {
-          if (a_type.min !== undefined && a_value < a_type.min) {
-            let path = fcf.normalizeObjectAddress(a_resultInfo.path);
-            throw new fcf.Exception("NUMBER_MIN", { value: a_value, min: a_type.min, path: path })
-          } else if (a_type.max !== undefined && a_value > a_type.max) {
-            let path = fcf.normalizeObjectAddress(a_resultInfo.path);
-            throw new fcf.Exception("NUMBER_MAX", { value: a_value, max: a_type.max, path: path })
-          } else {
-            a_resultInfo.error = false;
-            break;
+        {
+          let value = a_value;
+          if (typeof a_value !== "number" && a_type.convert){
+            value = Number(a_value);
           }
-        }
-        a_resultInfo.error = a_value === undefined ? 2 : 1;
-        if (a_rootType) {
-          a_resultInfo.types = ["number"];
+          if (typeof value === "number" && !isNaN(value)) {
+            if (a_type.min !== undefined && value < a_type.min) {
+              let path = fcf.normalizeObjectAddress(a_resultInfo.path);
+              throw new fcf.Exception("NUMBER_MIN", { value: a_value, min: a_type.min, path: path })
+            } else if (a_type.max !== undefined && value > a_type.max) {
+              let path = fcf.normalizeObjectAddress(a_resultInfo.path);
+              throw new fcf.Exception("NUMBER_MAX", { value: a_value, max: a_type.max, path: path })
+            } else {
+              a_resultInfo.error = false;
+              a_value = value;
+              break;
+            }
+          }
+          a_resultInfo.error = a_value === undefined ? 2 : 1;
+          if (a_rootType) {
+            a_resultInfo.types = ["number"];
+          }
         }
         break;
       case fcf.STRING:
-        if (typeof a_value === "string") {
-          if (a_type.length !== undefined && a_type.length != a_value.length) {
-            let path = fcf.normalizeObjectAddress(a_resultInfo.path);
-            throw new fcf.Exception("STRING_LENGTH", { currentLength: a_value.length, length: a_type.length, path: path })
-          } else if (a_type.minLength !== undefined && a_value.length < a_type.minLength) {
-            let path = fcf.normalizeObjectAddress(a_resultInfo.path);
-            throw new fcf.Exception("STRING_MIN_LENGTH", { currentLength: a_value.length, minLength: a_type.minLength, path: path })
-          } else if (a_type.maxLength !== undefined && a_value.length > a_type.maxLength) {
-            let path = fcf.normalizeObjectAddress(a_resultInfo.path);
-            throw new fcf.Exception("STRING_MAX_LENGTH", { currentLength: a_value.length, maxLength: a_type.maxLength, path: path })
+        {
+          let value = a_value;
+          if (typeof a_value !== "string" && a_type.convert){
+            value = fcf.str(a_value);
           }
-          a_resultInfo.error = false;
-          break;
-        }
-        a_resultInfo.error = a_value === undefined ? 2 : 1;
-        if (a_rootType) {
-          a_resultInfo.types = ["string"];
+          if (typeof value === "string") {
+            if (a_type.length !== undefined && a_type.length != value.length) {
+              let path = fcf.normalizeObjectAddress(a_resultInfo.path);
+              throw new fcf.Exception("STRING_LENGTH", { currentLength: value.length, length: a_type.length, path: path })
+            } else if (a_type.minLength !== undefined && value.length < a_type.minLength) {
+              let path = fcf.normalizeObjectAddress(a_resultInfo.path);
+              throw new fcf.Exception("STRING_MIN_LENGTH", { currentLength: value.length, minLength: a_type.minLength, path: path })
+            } else if (a_type.maxLength !== undefined && value.length > a_type.maxLength) {
+              let path = fcf.normalizeObjectAddress(a_resultInfo.path);
+              throw new fcf.Exception("STRING_MAX_LENGTH", { currentLength: value.length, maxLength: a_type.maxLength, path: path })
+            }
+            a_resultInfo.error = false;
+            a_value = value;
+            break;
+          }
+          a_resultInfo.error = a_value === undefined ? 2 : 1;
+          if (a_rootType) {
+            a_resultInfo.types = ["string"];
+          }
         }
         break;
       case fcf.DATE:
-        if (a_value instanceof Date) {
-          a_resultInfo.error = false;
-          break;
-        }
-        a_resultInfo.error = a_value === undefined ? 2 : 1;
-        if (a_rootType) {
-          a_resultInfo.types = ["date"];
+        {
+          let value = a_value;
+          if (!(a_value instanceof Date) && a_type.convert){
+            value = new Date(a_value);
+          }
+          if (value instanceof Date && !isNaN(value.getTime())) {
+            a_resultInfo.error = false;
+            a_value = value;
+            break;
+          }
+          a_resultInfo.error = a_value === undefined ? 2 : 1;
+          if (a_rootType) {
+            a_resultInfo.types = ["date"];
+          }
         }
         break;
       case -100:
@@ -1153,12 +1187,13 @@
       case fcf.NUMBERED:
         const check = a_type.type == fcf.ARRAY ? Array.isArray(a_value) : fcf.isNumbered(a_value);
         if (check) {
+          let value = [];
           a_resultInfo.error = false;
           for(let i = 0; i < a_value.length; ++i) {
             a_resultInfo.path.push(i.toString());
-            let value = _buildType(a_type.item, a_value[i], a_options, a_resultInfo, true, false);
+            let item = _buildType(a_type.item, a_value[i], a_options, a_resultInfo, true, false);
             if (!a_resultInfo.error) {
-             a_value[i] = value;
+             value[i] = item;
             } else {
               let path = fcf.normalizeObjectAddress(a_resultInfo.path);
               if (a_resultInfo.error == 1) {
@@ -1169,6 +1204,7 @@
             }
             a_resultInfo.path.pop();
           }
+          a_value = value;
         } else {
           a_resultInfo.error = a_value === undefined ? 2 : 1;
           if (a_rootType) {
@@ -1178,12 +1214,17 @@
        break;
       case fcf.OBJECT:
         if (a_value && typeof a_value == "object") {
+          let value = {};
           a_resultInfo.error = false;
           for(let name in a_type.fields) {
             a_resultInfo.path.push(name);
-            let value = _buildType(a_type.fields[name], a_value[name], a_options, a_resultInfo, true, false);
-            if (!a_resultInfo.error) {
-              a_value[name] = value;
+            let item = _buildType(a_type.fields[name], a_value[name], a_options, a_resultInfo, true, false);
+            if (a_resultInfo.error == 2 && !a_type.fields[name].require) {
+              a_resultInfo.error = 0;
+              a_resultInfo.path.pop();
+              continue;
+            } else if (!a_resultInfo.error) {
+              value[name] = item;
             } else {
               let path = fcf.normalizeObjectAddress(a_resultInfo.path);
               if (a_resultInfo.error == 1) {
@@ -1206,9 +1247,9 @@
             for(let name in a_value) {
               if (!(name in a_type.fields)) {
                 a_resultInfo.path.push(name);
-                let value = _buildType(a_type.undeclared, a_value[name], a_options, a_resultInfo, true, false);
+                let item = _buildType(a_type.undeclared, a_value[name], a_options, a_resultInfo, true, false);
                 if (!a_resultInfo.error) {
-                  a_value[name] = value;
+                  value[name] = item;
                 } else {
                   let path = fcf.normalizeObjectAddress(a_resultInfo.path);
                   if (a_resultInfo.error == 1) {
@@ -1221,6 +1262,7 @@
               }
             }
           }
+          a_value = value;
         } else {
           a_resultInfo.error = a_value === undefined ? 2 : 1;
           if (a_rootType) {
@@ -1231,10 +1273,12 @@
       case fcf.ITERABLE:
         if (fcf.isIterable(a_value)) {
           a_resultInfo.error = false;
-          let counter = 0;
-          for(let item of a_value) {
-            a_resultInfo.path.push(counter.toString());
-            _buildType(a_type.item, item, a_options, a_resultInfo, true, true);
+          let value = _createIterable(a_value);
+          fcf.each(a_value, (key, item)=>{
+            a_resultInfo.path.push(key.toString());
+            let newItem = {};
+            newItem[key] = _buildType(a_type.item, item, a_options, a_resultInfo, true, true);
+            fcf.append(value, newItem);
             if (a_resultInfo.error) {
               let path = fcf.normalizeObjectAddress(a_resultInfo.path);
               if (a_resultInfo.error == 1) {
@@ -1244,8 +1288,8 @@
               }
             }
             a_resultInfo.path.pop();
-            ++counter;
-          }
+          });
+          a_value = value;
         } else {
           a_resultInfo.error = a_value === undefined ? 2 : 1;
           if (a_rootType) {
@@ -1254,69 +1298,83 @@
         }
        break;
       case fcf.SET:
-        let value = a_value;
-        if (typeof a_value == "string") {
-          let emp = true;
-          value = [];
-          for(let c of a_value) {
-            if (emp) {
-              emp = false;
-              value.push("");
+        {
+          let value = a_value;
+          if (typeof a_value == "string") {
+            let emp = true;
+            value = [];
+            for(let c of a_value) {
+              if (emp) {
+                emp = false;
+                value.push("");
+              }
+              if (c == "|" || c == ";") {
+                emp = true;
+              } else {
+                value[value.length-1] += c;
+              }
             }
-            if (c == "|" || c == ";") {
-              emp = true;
-            } else {
-              value[value.length-1] += c;
-            }
+          } if (Array.isArray(value)) {
+            value = [...value];
           }
-        }
-        if (Array.isArray(value)) {
-          let valid = true;
-          for(let i of value) {
-            if (!(i in a_type.items)) {
-              valid = false;
+          if (Array.isArray(value)) {
+            let valid = true;
+            for(let i of value) {
+              if (!(i in a_type.items)) {
+                valid = false;
+                break;
+              }
+            }
+            if (valid) {
+              a_resultInfo.error = false;
+              a_value = value;
               break;
             }
           }
-          if (valid) {
-            return value;
-          }
-        }
-        a_resultInfo.error = a_value === undefined ? 2 : 1;
-        if (a_rootType) {
-          let v = [];
-          for(let k in a_type.items) {
-            for(let itm of a_type.items[k]) {
-              v.push(JSON.stringify(itm));
+          a_resultInfo.error = a_value === undefined ? 2 : 1;
+          if (a_rootType) {
+            let v = [];
+            for(let k in a_type.items) {
+              for(let itm of a_type.items[k]) {
+                v.push(JSON.stringify(itm));
+              }
             }
+            let tstr = "enum[";
+            tstr += v.join(";");
+            tstr += "]";
+            a_resultInfo.types = [tstr];
           }
-          let tstr = "enum[";
-          tstr += v.join(";");
-          tstr += "]";
-          a_resultInfo.types = [tstr];
         }
         break;
       case fcf.ENUM:
-        if (a_value in a_type.items) {
-          for(let v of a_type.items[a_value]){
-            if (v === a_value) {
-              a_resultInfo.error = false;
-              return a_value;
+        {
+          let found = false;
+          if (a_value in a_type.items) {
+            for(let v of a_type.items[a_value]){
+              if (v === a_value) {
+                a_resultInfo.error = false;
+                a_value = v;
+                found = true;
+                break;
+              }
             }
           }
-        }
-        a_resultInfo.error = a_value === undefined ? 2 : 1;
-        if (a_rootType) {
-          let v = [];
-          for(let k in a_type.items) {
-            for(let itm of a_type.items[k]) {
-              v.push(JSON.stringify(itm));
-            }
+          if (found){
+            break;
           }
-          let tstr = "enum[";
-          tstr += v.join(";");
-          tstr += "]";
-          a_resultInfo.types = [tstr];
+          a_resultInfo.error = a_value === undefined ? 2 : 1;
+          if (a_rootType) {
+            let v = [];
+            for(let k in a_type.items) {
+              for(let itm of a_type.items[k]) {
+                v.push(JSON.stringify(itm));
+              }
+            }
+            let tstr = "enum[";
+            tstr += v.join(";");
+            tstr += "]";
+            a_resultInfo.types = [tstr];
+          }
         }
         break;
     }
@@ -1832,8 +1890,6 @@
 
     return (result instanceof fcf.Actions ? result : fcf.actions().result(result)).options({quiet: true}).exception();
   }
-
-
 
   /// @fn object fcf.append(object|array a_dstObject, object|array a_srcObject1, object|array a_srcObject2, ...)
   /// @fn object fcf.append(boolean a_recursionCopy, object a_dstObject, object a_srcObject1, object a_srcObject2, ...)
@@ -6089,6 +6145,24 @@
   fcf.addException("HTTP_REQUEST_ERROR",                  "HTTP request failed @{{code}}@");
   fcf.addException("LOAD_MODULE",                         "Failed to load JS module @{{module}}@");
   fcf.addException("LOAD_UNITEST_MODULE",                 "Failed to load fcf-framework-unitest module. Install the missing module to perform testing: $ npm install fcf-framework-unitest");
+  fcf.addException("UNKNOWN_TYPE",   "Unknow type @{{type}}@");
+  fcf.addException("FIELD_NOT_SET",  "The field (@{{path}}@) is not set");
+  fcf.addException("NOT_MATCH_TYPE", "The value@{{ path ? '(' + path + ')' : '' }}@ " +
+                                     "passed does not match the specified types " +
+                                     "@{{types.length ? '(' + types.join(';') + ')' : ''}}@");
+  fcf.addException("UNDECLARED_FIELD", "Object@{{path ? ' ' + path : ''}}@ uses undeclared field \"@{{field}}@\"");
+  fcf.addException("NUMBER_MIN", "The value @{{value}}@ @{{path ? 'in the field ' + path + ' is ' : ''}}@less than minimum @{{min}}@");
+  fcf.addException("NUMBER_MAX", "The value @{{value}}@ @{{path ? ' in the field ' + path + ' is ' : ''}}@greater than maximum @{{max}}@");
+  fcf.addException("STRING_LENGTH", "The string length @{{currentLength}}@ "+
+                                    "does not match the specified length @{{length}}@"+
+                                    "@{{path ? ' in ' + path + ' field': ''}}@");
+  fcf.addException("STRING_MIN_LENGTH", "The string length @{{currentLength}}@ "+
+                                    "less than minimum @{{minLength}}@"+
+                                    "@{{path ? ' in ' + path + ' field' : ''}}@");
+  fcf.addException("STRING_MAX_LENGTH", "The string length @{{currentLength}}@ "+
+                                    "greater than maximum @{{maxLength}}@"+
+                                    "@{{path ? ' in ' + path + ' field' : ''}}@");
+
 
 
 

@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 const libPath = require('path');
 const libModule = require("module");
-
 let splitter    = process.platform == "win32" ? ";" : ":";
 let paths       = !process.env.NODE_PATH ? [] : process.env.NODE_PATH.split(splitter);
 paths.unshift(libPath.join(__dirname, '../..'));
@@ -41,6 +40,20 @@ unitest.run({
   enableLocalTests:     enableLocalTests,
   enableWebTests:       enableWebTests,
   include:              [
+                          ":base-tests/functions/build.js",
+                          ":base-tests/functions/build.array.js",
+                          ":base-tests/functions/build.boolean.js",
+                          ":base-tests/functions/build.date.js",
+                          ":base-tests/functions/build.enum.js",
+                          ":base-tests/functions/build.iterable.js",
+                          ":base-tests/functions/build.object.js",
+                          ":base-tests/functions/build.nan.js",
+                          ":base-tests/functions/build.null.js",
+                          ":base-tests/functions/build.number.js",
+                          ":base-tests/functions/build.numbered.js",
+                          ":base-tests/functions/build.set.js",
+                          ":base-tests/functions/build.string.js",
+                          ":base-tests/functions/build.undefined.js",
                           ":base-tests/functions/escapeQuotes.js",
                           ":base-tests/functions/compare.js",
                           ":base-tests/functions/has.js",

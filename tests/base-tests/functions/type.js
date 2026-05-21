@@ -239,6 +239,22 @@ fcf.test("Function fcf.type", (a_unitest)=>{
           "field1": "string",
           "field2": "number",
         },
+        undeclared: fcf.ANY,
+      }
+    );
+    let value = fcf.build(type, { field1: "first", field2: 2, field3: true });
+    a_unitest.equal(value, { field1: "first", field2: 2, field3: true });
+  }
+
+  {
+    let type = fcf.type("object",
+      {
+        require: true,
+        fields: {
+          "field1": "string",
+          "field2": "number",
+        },
+        undeclared: true,
       }
     );
     let value = fcf.build(type, { field1: "first", field2: 2, field3: true });
