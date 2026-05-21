@@ -40,6 +40,34 @@ fcf.test("Function fcf.build - ENUM", (a_unitest) => {
   {
     let description = {
       type: fcf.ENUM,
+      items: [1, 2, 3],
+      convert: true,
+    };
+    let type = fcf.type(description);
+
+    let value = fcf.build(type, "2");
+    a_unitest.equal(value, 2);
+  }
+
+  {
+    let description = {
+      type: fcf.ENUM,
+      items: [1, 2, 3],
+      convert: false,
+    };
+    let error = false;
+    let type = fcf.type(description);
+    try {
+      let value = fcf.build(type, "2");
+    } catch(e){
+      error = true;
+    }
+    a_unitest.equal(error, true);
+  }
+
+  {
+    let description = {
+      type: fcf.ENUM,
       items: ["a", "b"],
     };
     let type = fcf.type(description);

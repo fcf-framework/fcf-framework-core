@@ -1351,7 +1351,8 @@
           let found = false;
           if (a_value in a_type.items) {
             for(let v of a_type.items[a_value]){
-              if (v === a_value) {
+              let eq = a_type.convert ? v == a_value : v === a_value;
+              if (eq) {
                 a_resultInfo.error = false;
                 a_value = v;
                 found = true;
