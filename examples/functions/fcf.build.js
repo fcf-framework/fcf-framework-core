@@ -101,3 +101,39 @@ let fcf = require("fcf-framework-core");
   }
 }
 
+{
+let fcf = require("fcf-framework-core");
+
+let type = fcf.type("object",
+                    {
+                      fields: {
+                        id: { type: "number", require: true }, // Mark these fields as required, indicating flag require = true.
+                        tags: { type: "array", item: "string" },
+                        settings: {
+                          type: "object",
+                          fields: {
+                            active: { type: "boolean", default: true }
+                          },
+                          default: { active: true } // If this property was a mistake or it was absent, the default value is set.
+                        }
+                      },
+                      undeclared: false // We prohibit the presence of unannounced fields in this structure.
+                    }
+                  );
+
+let input = { id: 1, tags: ["admin", "user"] };
+let result = fcf.build(type, input);
+fcf.log.log("APP", "These settings fields are not passed:");
+fcf.log.log("APP", result);
+
+input = { id: 1, settings: { active: "error_value"} };
+result = fcf.build(type, input);
+fcf.log.log("APP", "Transmission of invalid data:");
+fcf.log.log("APP", result);
+
+input = { id: 1, tags: ["admin", "user"], settings: {active: false} };
+result = fcf.build(type, input);
+fcf.log.log("APP", "Transmission of valid data:");
+fcf.log.log("APP", result);
+
+}

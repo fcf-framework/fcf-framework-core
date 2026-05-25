@@ -1339,7 +1339,7 @@
                 v.push(JSON.stringify(itm));
               }
             }
-            let tstr = "enum[";
+            let tstr = "set[";
             tstr += v.join(";");
             tstr += "]";
             a_resultInfo.types = [tstr];

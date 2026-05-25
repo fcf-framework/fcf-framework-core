@@ -12,4 +12,6 @@ fcf.test("Function fcf.isNature", (a_unitest)=>{
   a_unitest.equal(fcf.isNature("2023-02-15T09:27:11.440Z", fcf.DATE, true), true);
   a_unitest.equal(fcf.isNature("2023-02-15T09:27:11.440Z", fcf.DATE, false), false);
   a_unitest.equal(fcf.isNature(new Date(), fcf.DATE), true);
+  
+  a_unitest.equal(fcf.isNumbered("23"), false);
 });
