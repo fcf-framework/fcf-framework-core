@@ -4299,6 +4299,11 @@
     if (_modules[path]){
       _modules[path].quiet &= !!a_quietError;
     }
+    
+    if (path == "/home/phoenix/Development/projects/fcf2-sync/fcf-framework-core/tests/base-tests/classes/ConfigurationMergeFunctions.js") {
+      console.log(path, state);
+    }
+
     if (state == "ready" || state == "loaded" || state == "ok") {
       return fcf.actions()
       .then(()=> {
@@ -4314,7 +4319,6 @@
         _modules[path].quiet = 1;
         a_act.error(_modules[path].error);
       })
-
     } else if ((!a_sync || _isServer) && (state == "wait" || state == "processing")) {
       return fcf.actions()
       .then((a_res, a_act)=> {
@@ -4355,7 +4359,7 @@
             let result;
             try {
               result = require(path);
-            }catch(e) {
+            } catch(e) {
               _modules[path].state = "error";
               _modules[path].error = e;
               _modules[path].act.error(e);
@@ -7296,6 +7300,21 @@
     ///                             - console.log(fcf.getConfiguration().container);
     ///                           - Output:
     ///                             - { array1: [ 2 ], array2: [ 1, 2 ], array3: [ 2 ] };
+
+
+
+    /// @fn constructor fcf.Configuration(object a_options)
+    /// @brief Initializes a new instance of the Configuration class.
+    /// @details The constructor sets up the internal configuration storage, including default parameters,
+    ///          merge rules, and specialized configuration for different levels (default, package, and user).
+    ///          It also initializes the internal ActionsQueue for managing asynchronous configuration updates.
+    /// @param object a_options - An optional configuration object containing:
+    ///               - boolean enableDefaultParams - If true, populates the configuration with default
+    ///                                               framework settings (aliases, translations, tokenize rules, etc.).
+    ///               - object merge - Defines custom merge functions for specific configuration paths.
+    ///               - string|array mergeParamNames - Specifies which parameter names will be treated as merge parameter settings, 
+    ///                                                i.e., act as an analogue of the merge property.
+    ///               - object configuration - A nested configuration object to be merged into the defaults.
     constructor(a_options) {
       super();
       Object.defineProperty(this, "___fcf_field_configuration___", { value: {}, writable: false, enumerable: false });
@@ -7391,7 +7410,7 @@
     ///                 - number level - Processing priority level (lower numbers are executed first).
     /// @param function a_callback - The event handler function.
     ///               - Signature: `(object a_eventData, object a_eventHeader)`
-    ///               - `a_eventData` - Event data (e.g., an object containing `newConfiguration` and `state`).
+    ///               - `a_eventData` - Event data (e.g., an object containing `newConfiguration` and `userData`).
     ///               - `a_eventHeader` - Event header (contains the event name).
     /// @result function - Returns a callback function that can be used to unsubscribe from the message handler in the detach method.
     on(a_eventName, a_options, a_callback) {
@@ -7543,7 +7562,7 @@
     }
 
     ___fcf_method_append___(a_config, a_level, a_isModuleDirectoriesExists) {
-      let state = {};
+      let userData = {};
       let beforeCalls = [];
       let afterCalls = [];
       let calls = [];
@@ -7560,7 +7579,7 @@
         if (!a_config) {
           return;
         }
-        return this.emit("update_before", {object: a_config, configuration: this, state: state, level: a_level});
+        return this.emit("update_before", {object: a_config, configuration: this, userData: userData, level: a_level});
       })
       .then(()=>{
         if (!a_config) {
@@ -7580,7 +7599,7 @@
             if (!ptr.object || !(ptr.key in ptr.object)){
               break;
             }
-            let data = { object: a_config, configuration: this, state: state, level: a_level, paths: [callInfo.path] };
+            let data = { object: a_config, configuration: this, userData: userData, level: a_level, paths: [callInfo.path] };
             fillMap[callInfo.event] = data;
             [beforeCalls, calls, afterCalls][callInfo.level].push({
               name:     callInfo.event,
@@ -7628,7 +7647,7 @@
         if (!a_config) {
           return;
         }
-        return this.emit("update", {object: a_config, configuration: this, newConfiguration: resConf, state: state, level: a_level});
+        return this.emit("update", {object: a_config, configuration: this, newConfiguration: resConf, userData: userData, level: a_level});
       })
       .then(()=>{
         return fcf.actions()
@@ -7665,7 +7684,7 @@
         }
         return fcf.actions({noexcept: true})
         .then(()=>{
-          return this.emit("update_after", {object: a_config, configuration: this, state: state, level: a_level, isModuleDirectoriesExists: isModuleDirectoriesExists});
+          return this.emit("update_after", {object: a_config, configuration: this, userData: userData, level: a_level, isModuleDirectoriesExists: isModuleDirectoriesExists});
         })
         .catch(true, (a_error)=>{
           if (!lastError) {

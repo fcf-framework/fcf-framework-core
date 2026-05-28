@@ -79,14 +79,14 @@ fcf.test("Class fcf.Configuration", async (a_unitest) => {
     configuration.append({
       merge: {
         "packages.test1.array1": "fcf.append",
-        "packages.test1.array3": {function: "fcf.NTest.mergeAppend", file: ":base-tests/classes/ConfigurationMergeFunctions.js"},
+        "packages.test1.array3": {function: "fcf.NTest.mergeAppend", file: ":base-tests/classes/ConfigurationMergeFunctions_mergeAppend.js"},
       },
       packages:{
         "test1": {
           field1: "value1",
-          array1:  [1,2,3],
-          array2:  [1,2,3],
-          array3:  [1,2,3],
+          array1: [1,2,3],
+          array2: [1,2,3],
+          array3: [1,2,3],
         },
         "test2": {
           field1: "value1",
